@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG - Painel do Jogador</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Merriweather:wght@400;700;900&display=swap');
+
+        :root {
+            --bg-dark: #120d09; --parchment: #fdfaf0; --parchment-dark: #f0e6d2;
+            --ink: #2c1a12; --ink-light: #5d4037; --gem-red: #d32f2f;
+            --gem-blue: #1976d2; --gem-green: #388e3c; --gold: #d4af37;
+            --glass-bg: rgba(253, 250, 240, 0.95); --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --radius: 16px;
+        }
+
+        body {
+            background-color: var(--bg-dark); background-image: radial-gradient(circle at top, #2a1e14 0%, #0a0705 100%);
+            color: var(--ink); font-family: 'Merriweather', serif; margin: 0; padding: 15px; 
+            display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; transition: background-color 0.3s, filter 0.5s;
+        }
+        
+        body.taking-damage { background-color: #5c0000; }
+        body.is-dead .app-container { filter: grayscale(100%) brightness(0.25); pointer-events: none; }
+        
+        @keyframes pulse-severe { 0% { transform: scale(1); box-shadow: 0 0 5px rgba(255,0,0,0.5); } 50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,0,0,0.9); } 100% { transform: scale(1); box-shadow: 0 0 5px rgba(255,0,0,0.5); } }
+        @keyframes hp-drain { 0% { box-shadow: inset 0 0 0px rgba(255,0,0,0); } 50% { box-shadow: inset 0 0 25px rgba(255,0,0,0.8); border-color: red;} 100% { box-shadow: inset 0 0 0px rgba(255,0,0,0); } }
+        
+        .hp-drain-pulse { animation: hp-drain 1s infinite; }
+        .hp-drain-pulse-slow { animation: hp-drain 2s infinite; }
+        .light-overload { color: #ff9800 !important; font-weight: bold; }
+        .severe-overload { animation: pulse-severe 1s infinite; display: inline-block; color: var(--gem-red) !important;}
+
+        .app-container {
+            background: var(--glass-bg); backdrop-filter: blur(10px); width: 100%; max-width: 450px;
+            padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid rgba(212, 175, 55, 0.4);
+            box-sizing: border-box; position: relative; transition: filter 0.5s;
+        }
+
+        .screen { display: none; animation: fadeIn 0.3s ease; } .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        h1, h2, h3 { font-family: 'Cinzel', serif; color: var(--ink); margin-top: 0; text-align: center; }
+
+        input, select {
+            width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 15px; background: rgba(0,0,0,0.04);
+            border: 1px solid rgba(0,0,0,0.1); color: var(--ink); font-family: 'Merriweather', serif;
+            font-size: 15px; font-weight: bold; border-radius: 8px; box-sizing: border-box;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--gold); }
+
+        .btn {
+            width: 100%; padding: 14px; border: none; border-radius: 12px; font-family: 'Cinzel', serif;
+            font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            gap: 8px; transition: transform 0.1s, box-shadow 0.2s; box-sizing: border-box;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-primary { background: linear-gradient(135deg, var(--ink) 0%, #1a0f0a 100%); color: var(--gold); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .btn-gold { background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%); color: var(--ink); box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3); }
+        .btn-green { background: linear-gradient(135deg, var(--gem-green) 0%, #1b5e20 100%); color: white; box-shadow: 0 4px 15px rgba(56,142,60,0.4); }
+        .btn-red { background: linear-gradient(135deg, var(--gem-red) 0%, #b71c1c 100%); color: white; box-shadow: 0 4px 15px rgba(211,47,47,0.4); }
+        .btn-blue { background: linear-gradient(135deg, var(--gem-blue) 0%, #0d47a1 100%); color: white; box-shadow: 0 4px 15px rgba(25,118,210,0.4); }
+        .btn-outline { background: transparent; border: 2px solid var(--ink); color: var(--ink); }
+        .btn-small { padding: 8px 12px; font-size: 12px; border-radius: 8px; width: auto;}
+
+        .bar-container { background: rgba(0,0,0,0.1); border-radius: 10px; height: 24px; width: 100%; position: relative; overflow: hidden; margin-top: 5px; border: 1px solid rgba(0,0,0,0.05);}
+        .bar-fill { height: 100%; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);}
+        .bar-hp { background: linear-gradient(90deg, #ef5350, #c62828); }
+        .bar-mp { background: linear-gradient(90deg, #42a5f5, #1565c0); }
+        .bar-exp { background: linear-gradient(90deg, #ffca28, #f57f17); height: 14px; border-radius: 7px;}
+
+        .game-header { text-align: center; margin-bottom: 20px; position: relative;}
+        .game-header h2 { margin: 0; font-size: 32px; color: var(--ink); text-transform: uppercase;}
+        .game-header p { margin: 5px 0 0 0; font-weight: bold; color: var(--ink-light); }
+        .stat-clickable { cursor: pointer; text-decoration: underline dotted var(--gold); text-underline-offset: 4px; transition: color 0.2s; display: inline-block;}
+        .stat-clickable:hover { color: var(--gold); }
+        
+        .level-badge { position: absolute; top: -10px; right: -10px; background: var(--gold); color: var(--ink); padding: 5px 12px; border-radius: 12px; font-weight: bold; font-size: 14px; font-family: 'Cinzel', serif; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
+        .stats-box { display: flex; justify-content: space-around; background: rgba(0,0,0,0.04); padding: 12px 5px; border-radius: 10px; margin-top: 15px; border: 1px solid rgba(0,0,0,0.05); font-weight: bold; font-size: 14px;}
+        
+        .dice-area { background: #fdfaf0; border: 2px dashed var(--gold); border-radius: var(--radius); padding: 20px; text-align: center; margin: 20px 0; box-shadow: inset 0 0 20px rgba(0,0,0,0.02);}
+        .dice-number { font-size: 64px; font-weight: 900; font-family: 'Cinzel', serif; color: var(--ink); margin: 15px 0; text-shadow: 3px 3px 6px rgba(0,0,0,0.15); display: none;}
+        .dice-number.spin { animation: spinDice 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: block; }
+        @keyframes spinDice { 0% { transform: rotate(0deg) scale(0.2); opacity: 0; } 100% { transform: rotate(720deg) scale(1); opacity: 1; } }
+        .dice-controls { display: none; gap: 10px; margin-top: 15px; }
+
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+        
+        .list-item { background: white; border: 1px solid rgba(0,0,0,0.08); padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);}
+        .list-item.equipped { border-left: 5px solid var(--gold); background: #fffcf2; }
+        .list-item.selected { background: #e3f2fd; border-color: var(--gem-blue); border-width: 2px; }
+        .item-info { display: flex; flex-direction: column; }
+        .item-name { font-weight: bold; font-size: 16px; color: var(--ink);}
+        .item-val { font-size: 12px; color: var(--ink-light); margin-top: 3px;}
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; opacity: 0; transition: opacity 0.2s;}
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal-card { background: var(--parchment); width: 100%; max-width: 360px; border-radius: 20px; padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); transform: scale(0.95); transition: transform 0.2s; position: relative; max-height: 90vh; overflow-y: auto;}
+        .modal-overlay.show .modal-card { transform: scale(1); }
+        .modal-close { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.05); border: none; font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--ink); display: flex; align-items: center; justify-content: center; z-index: 10;}
+
+        #modal-alert, #modal-confirm { z-index: 1100; }
+        #modal-gameover { z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); }
+        
+        .btn-death-float {
+            background: radial-gradient(circle, #2a0000 0%, #000 100%); color: #ff3333; border: 2px solid #550000;
+            font-size: 45px; font-family: 'Cinzel'; padding: 20px 50px; border-radius: 20px;
+            box-shadow: 0 0 40px rgba(255,0,0,0.5); cursor: pointer; transition: all 0.3s;
+            animation: floatDeath 3s ease-in-out infinite; text-align: center; font-weight: bold; margin: 0 auto;
+        }
+        @keyframes floatDeath { 0% { transform: translateY(0px) scale(1); box-shadow: 0 0 20px rgba(255,0,0,0.3); } 50% { transform: translateY(-15px) scale(1.05); box-shadow: 0 20px 50px rgba(255,0,0,0.8); } 100% { transform: translateY(0px) scale(1); box-shadow: 0 0 20px rgba(255,0,0,0.3); } }
+        
+        .revive-options { display: none; flex-direction: column; gap: 15px; width: 100%; max-width: 320px; margin: 0 auto; animation: fadeIn 0.5s ease; text-align: center;}
+        .btn-death-opt { padding: 15px; font-size: 15px; font-family: 'Cinzel'; border-radius: 12px; cursor: pointer; font-weight: bold; border: none; animation: floatDeath 4s ease-in-out infinite; transition: transform 0.2s;}
+        .btn-death-opt:active { transform: scale(0.95); }
+        .btn-opt-1 { background: linear-gradient(135deg, #1976d2, #0d47a1); color: white; box-shadow: 0 10px 30px rgba(25,118,210,0.6); }
+        .btn-opt-2 { background: linear-gradient(135deg, #d4af37, #b8860b); color: var(--ink); box-shadow: 0 10px 30px rgba(212,175,55,0.6); animation-delay: 0.5s;}
+        .btn-opt-3 { background: linear-gradient(135deg, #d32f2f, #b71c1c); color: white; box-shadow: 0 10px 30px rgba(211,47,47,0.6); animation-delay: 1s;}
+
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .mt-15 { margin-top: 15px; } .mb-15 { margin-bottom: 15px; } .text-center { text-align: center; }
+        .bottom-bar { display: flex; justify-content: space-between; margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); }
+        .combat-result-box { background: rgba(0,0,0,0.04); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; border: 1px solid rgba(0,0,0,0.08); font-size: 15px; line-height: 1.6;}
+        .detail-box { background: rgba(0,0,0,0.03); border-left: 3px solid var(--gold); padding: 12px; margin: 10px 0; text-align: left; font-size: 14px; border-radius: 4px;}
+        
+        .btn-gem-attr { background: var(--ink); color: var(--gold); border: 2px solid var(--gold); width: 32px; height: 32px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 18px;}
+    </style>
+</head>
+<body>
+
+<div class="app-container" id="app">
+
+    <div id="screen-game" class="screen active">
+        
+        <div class="game-header">
+            <div class="level-badge" id="game-level">LVL 1</div>
+            <h2 id="game-name">Nome</h2>
+            <p><span class="stat-clickable" onclick="openDetails('classe')" id="game-class">Classe</span> | <span class="stat-clickable" onclick="openDetails('personalidade')">Personalidade</span></p>
+            
+            <div class="stats-box">
+                <span class="stat-clickable" onclick="openDetails('atk')" style="color:var(--gem-red);">ATK: <span id="game-atk">0</span></span>
+                <span style="color:var(--ink-light);">|</span>
+                <span class="stat-clickable" onclick="openDetails('def')" style="color:var(--gem-blue);">DEF: <span id="game-def">0</span></span>
+                <span style="color:var(--ink-light);">|</span>
+                <span class="stat-clickable" onclick="openDetails('carga')" style="color:#e65100;">⚖️ <span id="game-carga">0/0</span>kg</span>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <div class="flex-between" style="font-size: 12px; font-weight: bold; margin-bottom: 4px; color: var(--ink-light);">
+                    <span>EXPERIÊNCIA</span> <span id="game-exp-text">0 / 100</span>
+                </div>
+                <div class="bar-container" style="height: 10px; background: rgba(0,0,0,0.05);"><div class="bar-fill bar-exp" id="game-exp-bar" style="width: 0%;"></div></div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <div class="flex-between" style="margin-bottom: 6px; font-weight: bold; font-size: 15px;">
+                <span class="stat-clickable" onclick="openDetails('hp')">❤️ Vida (HP)</span><span id="game-hp-text">20/20</span>
+            </div>
+            <div class="bar-container" id="hp-bar-wrapper"><div class="bar-fill bar-hp" id="game-hp-bar" style="width: 100%;"></div></div>
+            
+            <div id="emergency-potion-container" style="display:none; margin-top:10px;">
+                <button class="btn btn-blue btn-small" style="width:100%; font-size:14px; padding:10px; animation: pulse-severe 1.5s infinite;" onclick="useEmergencyPotion()">🩸 USAR POÇÃO RÁPIDA (Baixo HP)</button>
+            </div>
+
+            <div class="flex-between" style="margin-bottom: 6px; margin-top: 15px; font-weight: bold; font-size: 15px;">
+                <span class="stat-clickable" onclick="openDetails('mp')">💎 Mana (MP)</span><span id="game-mp-text">15/15</span>
+            </div>
+            <div class="bar-container"><div class="bar-fill bar-mp" id="game-mp-bar" style="width: 100%;"></div></div>
+        </div>
+
+        <div class="dice-area">
+            <button class="btn btn-gold" id="btn-main-dice" onclick="rollMainDice()">🎲 ROLAR DADO D20</button>
+            <div class="dice-number" id="main-dice-result">20</div>
+            
+            <div class="dice-controls" id="dice-actions">
+                <button class="btn btn-blue" style="flex:1;" onclick="actionDef()">🛡️ DEF</button>
+                <button class="btn btn-red" style="flex:1;" onclick="actionAtk()">⚔️ ATK</button>
+            </div>
+            <button class="btn btn-primary mt-15" id="btn-skill" style="display: none;" onclick="actionSkill()">🔥 USAR HABILIDADE</button>
+        </div>
+
+        <div class="action-grid">
+            <button class="btn btn-outline" onclick="showScreen('screen-inventory')">🎒 Inventário</button>
+            <button class="btn btn-outline" style="position:relative;" onclick="showScreen('screen-attributes')">
+                📊 Atributos 
+                <span id="badge-points" style="display:none; position:absolute; top:-5px; right:-5px; background:var(--gem-red); color:white; border-radius:50%; width:22px; height:22px; font-size:12px; align-items:center; justify-content:center;">!</span>
+            </button>
+            <button class="btn btn-outline" style="color:var(--gem-red); border-color:rgba(211,47,47,0.3);" onclick="openModal('modal-damage')">💔 Tomar Dano</button>
+            <button class="btn btn-outline" style="color:var(--gem-blue); border-color:rgba(25,118,210,0.3);" onclick="openPotionSelector()">🧪 Tomar Poção</button>
+            <button class="btn btn-gold" style="grid-column: span 2;" onclick="openModal('modal-exp')">✨ ADICIONAR EXP</button>
+        </div>
+
+        <div class="bottom-bar">
+            <button class="btn btn-small btn-outline" style="border:none; text-decoration:underline;" onclick="generateHelp()">❓ Ajuda</button>
+            <button class="btn btn-small btn-red" onclick="promptHardReset()">🚪 Fechar Jogo</button>
+        </div>
+    </div>
+
+    <div id="screen-inventory" class="screen">
+        <div class="flex-between mb-15">
+            <h2 style="margin:0;">🎒 Inventário</h2>
+            <button class="modal-close" style="position:relative; top:0; right:0;" onclick="showScreen('screen-game')">×</button>
+        </div>
+        
+        <button class="btn btn-green mb-15" onclick="openAddItemModal()">+ Adicionar Item</button>
+        
+        <div id="inv-overload-hp" style="display:none; padding:10px; background:var(--gem-red); color:white; border-radius:8px; font-weight:bold; margin-bottom: 15px; text-align:center; animation: pulse-severe 1s infinite;">
+            ⚠️ SOBRECARGA: Perdendo HP! (<span id="inv-hp-val">0</span> restante)
+        </div>
+
+        <div style="font-size: 13px; text-align: center; margin-bottom: 15px; font-weight: bold; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 8px;">
+            <div>Ataque (<span id="inv-atk-count" style="color:var(--gem-red);">0</span>/2) | Defesa (<span id="inv-def-count" style="color:var(--gem-blue);">0</span>/2)</div>
+            <div style="margin-top:5px; color:var(--gold);">Acessórios (<span id="inv-acc-count">0</span>/2)</div>
+        </div>
+        <div id="inventory-list" style="overflow-y: auto; max-height: 50vh; padding-right: 5px;"></div>
+    </div>
+
+    <div id="screen-attributes" class="screen">
+        <div class="flex-between mb-15">
+            <h2 style="margin:0;">📊 Atributos</h2>
+            <button class="modal-close" style="position:relative; top:0; right:0;" onclick="showScreen('screen-game')">×</button>
+        </div>
+
+        <div id="level-up-banner" style="display:none; background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%); color: var(--ink); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px;">
+            <div style="font-weight: 900; font-size: 18px; font-family: 'Cinzel', serif;">VOCÊ TEM PONTOS!</div>
+            <div style="font-size: 14px; margin-top: 5px;">Pontos Livres: <strong id="attr-free-points" style="font-size: 18px;">0</strong></div>
+        </div>
+
+        <div id="attributes-list" style="background: rgba(255,255,255,0.5); padding: 15px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);"></div>
+        
+        <button id="btn-confirm-attr" class="btn btn-primary mt-15" style="display:none;" onclick="confirmStatPoint()">CONFIRMAR DISTRIBUIÇÃO</button>
+    </div>
+
+</div>
+
+<div class="modal-overlay" id="modal-gameover" style="align-items: center;">
+    <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+        <div id="btn-fim" class="btn-death-float" onclick="showReviveOptions()">FIM?</div>
+        
+        <div id="revive-options" class="revive-options">
+            <h2 style="color: var(--gem-red); font-size: 32px; margin-bottom: 5px; text-shadow: 0 0 10px red;">RESSURREIÇÃO</h2>
+            <p style="color: #e0e0e0; font-size: 13px; text-align: center; margin-bottom: 20px;">
+                Os deuses cobram um preço.<br>Reviver custa <strong>(Nível x 10) de EXP</strong> e tira 50% da vida.<br><span style="color:#aaa;">* Somente um aliado com dom da vida (ex: <strong>Necromante</strong>) pode usar esta opção.</span>
+            </p>
+            
+            <button class="btn-death-opt btn-opt-1" onclick="revivePlayer(true)">🌟 REVIVER (Manter Mochila)</button>
+            <button class="btn-death-opt btn-opt-2" onclick="revivePlayer(false)">⚖️ REVIVER (Esvaziar Mochila)</button>
+            <button class="btn-death-opt btn-opt-3" style="margin-top: 15px;" onclick="localStorage.removeItem('rpg_character'); window.location.href = 'index.html';">💀 APAGAR LENDA (Começar do Zero)</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-details">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('modal-details')">×</button>
+        <h2 id="detail-title" class="text-center">Detalhes</h2>
+        <div id="detail-content" style="margin-top: 15px; line-height: 1.6;"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-alert">
+    <div class="modal-card text-center">
+        <h2 id="alert-title" style="color:var(--gem-red);">Aviso</h2>
+        <p id="alert-msg" style="margin: 20px 0; line-height: 1.5; font-size: 15px;"></p>
+        <button class="btn btn-primary" onclick="closeModal('modal-alert')">OK, Entendido</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirm">
+    <div class="modal-card text-center">
+        <h2 id="confirm-title">Confirmação</h2>
+        <p id="confirm-msg" style="margin: 20px 0; line-height: 1.5; font-size: 15px;"></p>
+        <div class="flex-between">
+            <button class="btn btn-outline" style="width: 48%;" onclick="closeModal('modal-confirm')">Cancelar</button>
+            <button class="btn btn-blue" style="width: 48%;" id="btn-confirm-action">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-damage">
+    <div class="modal-card text-center">
+        <button class="modal-close" onclick="closeModal('modal-damage')">×</button>
+        <h2>Dano Direto</h2>
+        <p style="font-size: 13px; color: var(--ink-light);">Subtrai o HP ignorando defesas.</p>
+        <input type="number" id="input-direct-dmg" placeholder="Digite o Dano" onkeypress="if(event.key === 'Enter'){this.blur(); applyDirectDamage();}">
+        <button class="btn btn-red" onclick="applyDirectDamage()">SOFRER DANO</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-combat">
+    <div class="modal-card text-center">
+        <button class="modal-close" onclick="closeModal('modal-combat')">×</button>
+        <h2 id="combat-title">Ação</h2>
+        <div class="dice-number spin" id="combat-dice">20</div>
+        <div class="combat-result-box" id="combat-result-text"></div>
+        <div id="combat-extra-actions"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-enemy-atk">
+    <div class="modal-card text-center">
+        <button class="modal-close" onclick="closeModal('modal-enemy-atk')">×</button>
+        <h2 style="color:var(--gem-red);">Ataque Inimigo</h2>
+        <p id="enemy-atk-desc" style="font-weight: bold; margin-bottom: 15px;"></p>
+        <input type="number" id="input-enemy-dmg" placeholder="Dado do Inimigo" onkeypress="if(event.key === 'Enter'){this.blur(); calcEnemyDmg();}">
+        <button class="btn btn-red" onclick="calcEnemyDmg()">CALCULAR IMPACTO</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-exp">
+    <div class="modal-card text-center">
+        <button class="modal-close" onclick="closeModal('modal-exp')">×</button>
+        <h2>Adicionar EXP</h2>
+        <div style="font-size: 40px; margin-bottom: 10px;">✨</div>
+        <input type="number" id="input-exp" placeholder="Quantidade de EXP" onkeypress="if(event.key === 'Enter'){this.blur(); addExp();}">
+        <button class="btn btn-gold" onclick="addExp()">RECEBER EXP</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-item">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('modal-add-item')">×</button>
+        <h2>Novo Item</h2>
+        <label>Nome do Item:</label>
+        <input type="text" id="item-name" placeholder="Ex: Espada, Colar de Ouro" onkeypress="if(event.key === 'Enter'){document.getElementById('item-val').focus();}">
+        
+        <div class="flex-between" style="gap: 10px;">
+            <div style="flex:1;">
+                <label>Tipo:</label>
+                <select id="item-type" onchange="toggleItemType()">
+                    <option value="atk">⚔️ Ataque</option>
+                    <option value="def">🛡️ Defesa</option>
+                    <option value="use">🧪 Poção/Uso</option>
+                    <option value="acc">💍 Acessório</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label>Valor (Poder):</label>
+                <input type="number" id="item-val" placeholder="Ex: 5" oninput="updateWeightBarUI()" onkeypress="if(event.key === 'Enter'){document.getElementById('item-weight').focus();}">
+            </div>
+        </div>
+
+        <div id="item-use-wrap" style="display:none;">
+            <label>Recupera o quê?</label>
+            <select id="item-use-type"><option value="hp">❤️ Curar HP</option><option value="mp">💎 Curar MP</option></select>
+        </div>
+        <div id="item-acc-wrap" style="display:none;">
+            <label>Buff do Acessório:</label>
+            <select id="item-acc-type">
+                <option value="atk">⚔️ +ATK Máximo</option>
+                <option value="def">🛡️ +DEF Máxima</option>
+                <option value="hp">❤️ +HP Máximo</option>
+                <option value="mp">💎 +MP Máximo</option>
+                <option value="kg">⚖️ +Carga Máxima</option>
+                <option value="+hp">🩸 Regen (+HP a cada 10s)</option>
+                <option value="+mp">✨ Regen (+MP a cada 10s)</option>
+            </select>
+        </div>
+        
+        <label style="margin-top: 5px;">Peso do Item (Kg):</label>
+        <div class="flex-between" style="gap: 10px; margin-bottom: 5px;">
+            <input type="number" id="item-weight" placeholder="Ex: 3" style="margin: 0;" oninput="updateWeightBarUI()" onkeypress="if(event.key === 'Enter'){this.blur(); saveItem();}">
+            <button class="btn btn-gold btn-small" style="padding: 12px; border-radius: 8px;" onclick="autoGenerateWeight()">🎲 AUTO</button>
+        </div>
+        
+        <div class="bar-container" style="height: 12px; margin-bottom: 15px;">
+            <div class="bar-fill" id="weight-indicator-bar" style="width: 0%; transition: background 0.3s, width 0.3s;"></div>
+        </div>
+
+        <button class="btn btn-primary" onclick="saveItem()">ADICIONAR NA MOCHILA</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-potions">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('modal-potions')">×</button>
+        <h2 style="margin-bottom: 20px;">Suas Poções</h2>
+        <div id="potion-list-popup" style="max-height: 40vh; overflow-y: auto; padding-right: 5px;"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-help">
+    <div class="modal-card" style="max-width: 400px; max-height: 85vh; overflow-y: auto;">
+        <button class="modal-close" onclick="closeModal('modal-help')">×</button>
+        <h2 style="border-bottom: 2px solid var(--gold); padding-bottom: 10px;">Guia de Sobrevivência</h2>
+        <div id="help-content" style="font-size: 14px; line-height: 1.6; color: var(--ink);"></div>
+    </div>
+</div>
+
+<script>
+    const CLASSES = {
+        "Guerreiro": { xpBase: 100, skill: "Fúria Inabalável", cost: 10, costType: 'hp', desc: "Soma +5 no dano FINAL. (Custa 10 de HP)." },
+        "Arqueiro": { xpBase: 100, skill: "Chuva de Flechas", cost: 15, costType: 'mp', desc: "Dano em área. Soma +3 no dano de TODOS inimigos." },
+        "Mago": { xpBase: 110, skill: "Colapso Arcano", cost: 20, costType: 'mp', desc: "Dano mágico absurdo! Soma +10 no dano FINAL." },
+        "Necromante": { xpBase: 105, skill: "Corrente de Almas", cost: 15, costType: 'mp', desc: "Revive aliado caído com metade do HP." },
+        "Druida": { xpBase: 100, skill: "Metamorfose", cost: 15, costType: 'mp', desc: "Fera: Soma +2 nos dados de ATK e DEF por 2 rodadas." },
+        "Soldado": { xpBase: 95, skill: "Formação Falange", cost: 10, costType: 'mp', desc: "Aumenta defesa dos aliados em +2 na próxima rodada." },
+        "Assassino": { xpBase: 105, skill: "Golpe das Sombras", cost: 15, costType: 'mp', desc: "Dano Triplo se bater furtivo." },
+        "Bardo": { xpBase: 90, skill: "Canção Fagulha", cost: 10, costType: 'mp', desc: "Dá bônus na equipe de +2 nos dados de ataque." }
+    };
+    const STAT_NAMES = { FOR: "Força", INT: "Inteligência", AGI: "Agilidade", VIT: "Vitalidade", CAR: "Carisma", SOR: "Sorte" };
+    
+    const ATTRIBUTE_HELP = {
+        FOR: { desc: "Força bruta, usada para ataques e limite de carga.", fn: (v) => `Você tem <strong>${v} FOR</strong>.<br>Ganha <strong>+${v}</strong> no Ataque e <strong>+${v*5}kg</strong> na Carga.` },
+        INT: { desc: "Poder mágico e reserva de mana.", fn: (v) => `Você tem <strong>${v} INT</strong>.<br>Ganha <strong>+${v}</strong> de Dano Mágico e <strong>+${v*2} MP</strong>.` },
+        AGI: { desc: "Velocidade de ataque e reflexos para esquiva.", fn: (v) => `Você tem <strong>${v} AGI</strong>.<br>Logo, tem <strong>+${v}</strong> em Velocidade e Esquiva.` },
+        VIT: { desc: "Resistência física total.", fn: (v) => `Você tem <strong>${v} VIT</strong>.<br>Ganha <strong>+${v*3} HP</strong> somados aos 20 iniciais.` },
+        CAR: { desc: "Lábia e negociação de preços.", fn: (v) => `Você tem <strong>${v} CAR</strong>.<br>Ganha <strong>+${Math.floor(v/2)}</strong> de Persuasão e <strong>${Math.floor(v/2)*10}%</strong> de Desconto.` },
+        SOR: { desc: "Chance de golpes críticos e saque.", fn: (v) => `Você tem <strong>${v} SOR</strong>.<br>Acerto crítico ao tirar <strong>${20-v} ou mais</strong> no D20 🎲.` }
+    };
+
+    let player = {};
+    let overloadInterval = null;
+    let regenInterval = null;
+    let currentOverloadState = 0; 
+    let confirmCallback = null;
+
+    function init() {
+        let savedData = localStorage.getItem('rpg_character');
+        if (!savedData) return window.location.href = 'index.html';
+        player = JSON.parse(savedData);
+        
+        if (player.level === undefined) player.level = 1;
+        if (player.exp === undefined) player.exp = 0;
+        if (player.freePoints === undefined) player.freePoints = 0;
+        if (!player.inventory) player.inventory = [];
+        
+        if (player.inventory.length === 0) {
+            player.inventory.push({ id: Date.now(), name: "Roupas Comuns", type: 'def', value: 0, weight: 9, equipped: true });
+        }
+        player.inventory.forEach(i => { if(i.weight === undefined) i.weight = 1; });
+
+        recalcMaxStats(); updateGameUI();
+        startRegenLoop();
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        resetDiceArea(); 
+        if(id === 'screen-game') updateGameUI();
+        if(id === 'screen-inventory') renderInventory();
+        if(id === 'screen-attributes') renderAttributes();
+    }
+    
+    function openModal(id) { resetDiceArea(); document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    function customAlert(title, text) {
+        document.getElementById('alert-title').innerText = title;
+        document.getElementById('alert-msg').innerHTML = text;
+        openModal('modal-alert');
+    }
+
+    function customConfirm(title, text, callback) {
+        document.getElementById('confirm-title').innerText = title;
+        document.getElementById('confirm-msg').innerHTML = text;
+        
+        let btn = document.getElementById('btn-confirm-action');
+        let newBtn = btn.cloneNode(true); 
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        newBtn.onclick = function() {
+            callback();
+            closeModal('modal-confirm');
+        };
+        openModal('modal-confirm');
+    }
+
+    // --- CÁLCULOS PRINCIPAIS ---
+    function getExpForNextLevel(lvl) { return Math.floor((CLASSES[player.cls]?.xpBase || 100) * Math.pow(1.35, lvl - 1)); }
+    function getEquippedTotal(type) { return player.inventory.filter(i => i.type === type && i.equipped).reduce((sum, i) => sum + i.value, 0); }
+    function getAccBuff(buffType) { return player.inventory.filter(i => i.type === 'acc' && i.equipped && i.useType === buffType).reduce((sum, i) => sum + i.value, 0); }
+    
+    function getMaxLoad() { return 10 + (player.finalStats.FOR * 5) + getAccBuff('kg') + ((player.level - 1) * 2); }
+    
+    function getCurrentLoad() { 
+        return player.inventory.reduce((sum, i) => {
+            let w = i.weight || 0;
+            if (i.equipped && i.type !== 'use') w = Math.ceil(w * 0.66); 
+            return sum + w;
+        }, 0); 
+    }
+
+    function recalcMaxStats() {
+        player.maxHp = 20 + (player.finalStats.VIT * 3) + ((player.level - 1) * 2) + getAccBuff('hp');
+        player.maxMp = 15 + (player.finalStats.INT * 2) + ((player.level - 1) * 1) + getAccBuff('mp');
+        if(player.hp === undefined) player.hp = player.maxHp;
+        if(player.mp === undefined) player.mp = player.maxMp;
+    }
+
+    function startRegenLoop() {
+        regenInterval = setInterval(() => {
+            if (player.hp > 0 && !document.body.classList.contains('is-dead')) {
+                let hpRegen = getAccBuff('+hp'); let mpRegen = getAccBuff('+mp'); let didHeal = false;
+                
+                if (hpRegen > 0 && player.hp < player.maxHp) { player.hp = Math.min(player.maxHp, player.hp + hpRegen); didHeal = true; }
+                if (mpRegen > 0 && player.mp < player.maxMp) { player.mp = Math.min(player.maxMp, player.mp + mpRegen); didHeal = true; }
+                if (didHeal) updateGameUI(); 
+            }
+        }, 10000);
+    }
+
+    function checkDeath() {
+        if (player.hp <= 0 && !document.body.classList.contains('is-dead')) {
+            document.body.classList.add('is-dead');
+            document.getElementById('btn-fim').style.display = 'block';
+            document.getElementById('revive-options').style.display = 'none';
+            document.getElementById('modal-gameover').classList.add('show');
+            clearInterval(overloadInterval);
+        }
+    }
+
+    // --- MORTE ---
+    function showReviveOptions() {
+        document.getElementById('btn-fim').style.display = 'none';
+        document.getElementById('revive-options').style.display = 'flex';
+    }
+
+    function revivePlayer(keepInv) {
+        let penalty = player.level * 10; player.exp -= penalty; let levelsLost = 0;
+        while (player.exp < 0 && player.level > 1) { player.level--; player.exp += getExpForNextLevel(player.level); levelsLost++; }
+        if (player.exp < 0) player.exp = 0;
+        
+        if (levelsLost > 0) {
+            for(let s in STAT_NAMES) player.finalStats[s] = 2 + (CLASSES[player.cls].mods[s] || 0);
+            player.freePoints = player.level - 1;
+        }
+
+        if (!keepInv) player.inventory = [{ id: Date.now(), name: "Roupas Comuns", type: 'def', value: 0, weight: 9, equipped: true }];
+        
+        recalcMaxStats(); player.hp = Math.floor(player.maxHp / 2); if(player.hp < 1) player.hp = 1;
+        
+        document.body.classList.remove('is-dead'); closeModal('modal-gameover');
+        let msg = `Você reviveu com 50% de HP e perdeu <strong>${penalty} de EXP</strong>.`;
+        if (levelsLost > 0) msg += `<br><br><span style="color:red; font-weight:bold;">⚠️ VOCÊ CAIU ${levelsLost} NÍVEL(IS)!</span><br>Seus atributos resetaram para a base. Redistribua ${player.freePoints} pontos.`;
+        updateGameUI(); customAlert("Ressurreição 🌟", msg);
+    }
+
+    function promptHardReset() {
+        customConfirm("Fechar Jogo?", "Seu jogo atual será apagado permanentemente e você voltará para a tela inicial. Deseja continuar?", () => {
+            localStorage.removeItem('rpg_character'); window.location.href = 'index.html'; 
+        });
+    }
+
+    // --- OVERLOAD (Sobrecarga) ---
+    function checkOverloadState() {
+        let curr = getCurrentLoad(); let max = getMaxLoad();
+        let pct = (curr / max) * 100;
+        let newState = 0; // 0=Normal, 1=Leve, 2=Severo
+
+        if (pct >= 110) newState = 2; else if (pct > 100) newState = 1; else newState = 0;
+
+        if (newState !== currentOverloadState) {
+            clearInterval(overloadInterval);
+            currentOverloadState = newState;
+
+            document.getElementById('game-carga').classList.remove('severe-overload', 'light-overload');
+            document.getElementById('hp-bar-wrapper').classList.remove('hp-drain-pulse', 'hp-drain-pulse-slow');
+            document.getElementById('inv-overload-hp').style.display = 'none';
+
+            if (newState === 2) {
+                document.getElementById('game-carga').classList.add('severe-overload');
+                document.getElementById('hp-bar-wrapper').classList.add('hp-drain-pulse');
+                document.getElementById('inv-overload-hp').innerHTML = `⚠️ SOBRECARGA SEVERA: Perdendo 1 HP / seg!`;
+                document.getElementById('inv-overload-hp').style.display = 'block';
+                if (player.hp > 0 && !document.body.classList.contains('is-dead')) customAlert("⚠️ ESMAGADO!", "Você passou de 10% do limite de peso!<br>Você <strong>não ataca</strong>, dados limitados a 10, e <strong>perde 1 HP por segundo!</strong>");
+                overloadInterval = setInterval(() => drainHP(1), 1000);
+            } 
+            else if (newState === 1) {
+                document.getElementById('game-carga').classList.add('light-overload');
+                document.getElementById('hp-bar-wrapper').classList.add('hp-drain-pulse-slow');
+                document.getElementById('inv-overload-hp').innerHTML = `⚠️ SOBRECARGA LEVE: Perdendo 1 HP a cada 8 seg!`;
+                document.getElementById('inv-overload-hp').style.display = 'block';
+                if (player.hp > 0 && !document.body.classList.contains('is-dead')) customAlert("⚠️ PESADO DEMAIS", "Você está acima do limite.<br>Você <strong>não ataca</strong>, dados limitados a 10, e <strong>perde 1 HP a cada 8 seg</strong>.");
+                overloadInterval = setInterval(() => drainHP(1), 8000);
+            }
+        }
+        if (newState === 0) document.getElementById('game-carga').style.color = "#e65100";
+    }
+
+    function drainHP(amount) {
+        if (player.hp > 0 && !document.body.classList.contains('is-dead')) {
+            player.hp -= amount;
+            document.getElementById('game-hp-text').innerText = `${player.hp}/${player.maxHp}`;
+            document.getElementById('game-hp-bar').style.width = `${(player.hp/player.maxHp)*100}%`;
+            document.getElementById('inv-hp-val').innerText = player.hp;
+            if (player.hp <= player.maxHp * 0.5) document.getElementById('emergency-potion-container').style.display = 'block';
+            localStorage.setItem('rpg_character', JSON.stringify(player)); checkDeath();
+        }
+    }
+
+    function updateGameUI() {
+        if(player.hp < 0) player.hp = 0; if(player.hp > player.maxHp) player.hp = player.maxHp;
+        if(player.mp < 0) player.mp = 0; if(player.mp > player.maxMp) player.mp = player.maxMp;
+        
+        document.getElementById('game-name').innerText = player.name;
+        document.getElementById('game-class').innerText = `${player.cls}`;
+        document.getElementById('game-level').innerText = `LVL ${player.level}`;
+        
+        document.getElementById('game-hp-text').innerText = `${player.hp}/${player.maxHp}`;
+        document.getElementById('game-hp-bar').style.width = `${(player.hp/player.maxHp)*100}%`;
+        document.getElementById('game-hp-bar').innerText = player.hp;
+        
+        if (player.hp <= player.maxHp * 0.5 && player.hp > 0) document.getElementById('emergency-potion-container').style.display = 'block';
+        else document.getElementById('emergency-potion-container').style.display = 'none';
+
+        document.getElementById('game-mp-text').innerText = `${player.mp}/${player.maxMp}`;
+        document.getElementById('game-mp-bar').style.width = `${(player.mp/player.maxMp)*100}%`;
+        document.getElementById('game-mp-bar').innerText = player.mp;
+
+        let expNext = getExpForNextLevel(player.level);
+        document.getElementById('game-exp-text').innerText = `${player.exp} / ${expNext}`;
+        document.getElementById('game-exp-bar').style.width = `${Math.min(100, (player.exp/expNext)*100)}%`;
+
+        let lvlAtk = (player.level - 1);
+        let lvlDef = (player.level - 1);
+
+        document.getElementById('game-atk').innerText = getEquippedTotal('atk') + getAccBuff('atk') + lvlAtk;
+        document.getElementById('game-def').innerText = getEquippedTotal('def') + getAccBuff('def') + lvlDef;
+        document.getElementById('game-carga').innerText = `${getCurrentLoad()}/${getMaxLoad()}`;
+        document.getElementById('badge-points').style.display = player.freePoints > 0 ? 'flex' : 'none';
+
+        if(player.hp > 0 && player.hp <= player.maxHp * 0.2) document.body.classList.add('taking-damage');
+        else document.body.classList.remove('taking-damage');
+
+        localStorage.setItem('rpg_character', JSON.stringify(player));
+        checkDeath(); checkOverloadState();
+    }
+
+    // --- POP-UPS DETALHES ---
+    function openDetails(type) {
+        let title = ''; let html = '';
+        if(type === 'hp') {
+            title = '❤️ Vida (HP)';
+            html = `<div class="detail-box"><strong>HP Base:</strong> 20<br><strong>Vitalidade (x3):</strong> +${player.finalStats.VIT * 3}<br><strong>Bônus de Nível:</strong> +${(player.level-1)*2}`;
+            let accBuff = getAccBuff('hp'); if(accBuff>0) html += `<br><strong style="color:var(--gold);">Acessórios:</strong> +${accBuff}`;
+            html += `</div><div style="font-size:24px; font-weight:bold; color:var(--gem-red); text-align:center;">HP MÁXIMO: ${player.maxHp}</div>`;
+        } 
+        else if(type === 'mp') {
+            title = '💎 Mana (MP)';
+            html = `<div class="detail-box"><strong>MP Base:</strong> 15<br><strong>Inteligência (x2):</strong> +${player.finalStats.INT * 2}<br><strong>Bônus de Nível:</strong> +${player.level-1}`;
+            let accBuff = getAccBuff('mp'); if(accBuff>0) html += `<br><strong style="color:var(--gold);">Acessórios:</strong> +${accBuff}`;
+            html += `</div><div style="font-size:24px; font-weight:bold; color:var(--gem-blue); text-align:center;">MP MÁXIMO: ${player.maxMp}</div>`;
+        }
+        else if(type === 'atk') {
+            title = '⚔️ Poder de Ataque';
+            let items = player.inventory.filter(i => (i.type === 'atk' || (i.type === 'acc' && i.useType === 'atk')) && i.equipped);
+            html = `<div class="detail-box"><strong>Sua Força:</strong> +${player.finalStats.FOR}<br><strong>Bônus de Nível:</strong> +${player.level-1}</div><h3 style="font-size:15px;">Itens em Uso:</h3>`;
+            if(items.length === 0) html += `<p style="font-style:italic; color:var(--ink-light); text-align:center;">Nenhum item equipado.</p>`;
+            items.forEach(i => html += `<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc; padding:5px 0;"><span>${i.type==='acc'?'💍':'⚔️'} ${i.name}</span><strong>+${i.value}</strong></div>`);
+            html += `<div style="font-size:20px; font-weight:bold; margin-top:15px; color:var(--gem-red); text-align:center;">BÔNUS DE ARMAS: +${getEquippedTotal('atk') + getAccBuff('atk')}</div>`;
+        }
+        else if(type === 'def') {
+            title = '🛡️ Poder de Defesa';
+            let items = player.inventory.filter(i => (i.type === 'def' || (i.type === 'acc' && i.useType === 'def')) && i.equipped);
+            html = `<div class="detail-box"><strong>Bônus de Nível:</strong> +${player.level-1}</div><h3 style="font-size:15px;">Itens em Uso:</h3>`;
+            if(items.length === 0) html += `<p style="font-style:italic; color:var(--ink-light); text-align:center;">Nenhum item equipado.</p>`;
+            items.forEach(i => html += `<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc; padding:5px 0;"><span>${i.type==='acc'?'💍':'🛡️'} ${i.name}</span><strong>+${i.value}</strong></div>`);
+            html += `<div style="font-size:20px; font-weight:bold; margin-top:15px; color:var(--gem-blue); text-align:center;">DEFESA TOTAL: +${getEquippedTotal('def') + getAccBuff('def')}</div>`;
+        }
+        else if(type === 'carga') {
+            title = '⚖️ Capacidade de Carga';
+            html = `<div class="detail-box"><strong>Carga Base:</strong> 10kg<br><strong>Força (x5):</strong> +${player.finalStats.FOR * 5}kg<br><strong>Bônus de Nível:</strong> +${(player.level - 1)*2}kg`;
+            let accBuff = getAccBuff('kg'); if(accBuff>0) html += `<br><strong style="color:var(--gold);">Acessórios:</strong> +${accBuff}kg`;
+            html += `<br><strong style="color:var(--gem-red);">MÁXIMO: ${getMaxLoad()}kg</strong></div>`;
+            html += `<h3 style="font-size:15px;">Itens na Mochila:</h3>`;
+            player.inventory.forEach(i => {
+                let w = (i.equipped && i.type !== 'use') ? Math.ceil(i.weight * 0.66) : i.weight;
+                html += `<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc; padding:5px 0;"><span>${i.name} ${i.equipped && i.type !== 'use' ? '<span style="color:var(--gold);">(Equip)</span>' : ''}</span><strong>${w}kg</strong></div>`;
+            });
+            html += `<div style="font-size:22px; font-weight:bold; margin-top:15px; color:#e65100; text-align:center;">PESO ATUAL: ${getCurrentLoad()}kg</div>`;
+        }
+        else if(type === 'classe') {
+            let cData = CLASSES[player.cls]; title = `Lenda: ${player.cls}`;
+            html = `<div class="detail-box"><strong>🔥 Habilidade: ${cData.skill}</strong><br><br>${cData.desc}</div>`;
+        }
+        else if(type === 'personalidade') {
+            title = `Personalidade`; html = `<div style="font-size: 40px; margin-bottom: 10px; text-align:center;">🎭</div><h3 style="margin-bottom:5px;">${player.personality}</h3><p style="font-style:italic; font-size:15px; text-align:center;">"${player.personalityDesc}"</p>`;
+        }
+        document.getElementById('detail-title').innerText = title; document.getElementById('detail-content').innerHTML = html;
+        openModal('modal-details');
+    }
+
+    // --- COMBATE ---
+    function resetDiceArea() {
+        document.getElementById('dice-actions').style.display = 'none'; document.getElementById('btn-skill').style.display = 'none';
+        let dEl = document.getElementById('main-dice-result'); dEl.innerText = "20"; dEl.classList.remove('spin');
+    }
+
+    function tryRoll() {
+        let d = Math.floor(Math.random() * 20) + 1;
+        if (currentOverloadState > 0 && d > 10) {
+            setTimeout(() => customAlert("Exausto! 🥵", `O dado rolou <strong>${d}</strong>.<br><br>Por estar carregando peso além do limite, você não tem energia. O máximo que atinge é 10.<br><br><strong>Ação Falhou. Gire novamente!</strong>`), 600);
+            return null; 
+        }
+        return d;
+    }
+
+    function spinDiceAnim(elId, value) {
+        let el = document.getElementById(elId); el.innerText = value;
+        el.classList.remove('spin'); void el.offsetWidth; el.classList.add('spin');
+    }
+
+    function rollMainDice() {
+        let d = tryRoll(); if (d === null) { spinDiceAnim('main-dice-result', "❌"); document.getElementById('dice-actions').style.display = 'none'; document.getElementById('btn-skill').style.display = 'none'; return; }
+        spinDiceAnim('main-dice-result', d);
+        document.getElementById('dice-actions').style.display = 'flex'; document.getElementById('btn-skill').style.display = 'block';
+    }
+
+    let currentTotalDef = 0;
+    function actionDef() {
+        let d = tryRoll(); if(d === null) { spinDiceAnim('combat-dice', "❌"); return; }
+        let eqDef = getEquippedTotal('def') + getAccBuff('def'); let lvlDef = (player.level - 1); currentTotalDef = d + eqDef + lvlDef;
+        document.getElementById('combat-title').innerText = "🛡️ DEFESA"; spinDiceAnim('combat-dice', d);
+        document.getElementById('combat-result-text').innerHTML = `Bônus (Equip+Nível): <strong>+${eqDef + lvlDef}</strong><br><span style="font-size:22px; color:var(--gem-blue); display:block; margin-top:10px;">DEFESA TOTAL: ${currentTotalDef}</span>`;
+        document.getElementById('combat-extra-actions').innerHTML = `<button class="btn btn-red mt-15" onclick="openEnemyAtkModal()">INIMIGO ATACOU</button>`;
+        openModal('modal-combat');
+    }
+
+    function openEnemyAtkModal() {
+        closeModal('modal-combat'); document.getElementById('enemy-atk-desc').innerText = `Sua Defesa Total: ${currentTotalDef}`;
+        document.getElementById('input-enemy-dmg').value = ''; openModal('modal-enemy-atk');
+        setTimeout(() => document.getElementById('input-enemy-dmg').focus(), 100);
+    }
+
+    function calcEnemyDmg() {
+        let dmg = parseInt(document.getElementById('input-enemy-dmg').value);
+        if (isNaN(dmg) || dmg <= 0) return customAlert("Erro", "Digite um valor válido.");
+        closeModal('modal-enemy-atk'); let danoReal = dmg - currentTotalDef;
+        
+        if (danoReal <= 0) customAlert("🛡️ BLOQUEIO PERFEITO!", `O ataque de ${dmg} não superou sua defesa de ${currentTotalDef}.<br><br><strong>Você não tomou dano.</strong>`);
+        else {
+            player.hp -= danoReal; document.body.classList.add('taking-damage');
+            setTimeout(() => document.body.classList.remove('taking-damage'), 300); updateGameUI();
+            if(player.hp > 0) customAlert("💔 GOLPE RECEBIDO!", `O ataque furou sua defesa de ${currentTotalDef}.<br><br><span style="color:red; font-weight:bold; font-size:18px;">Você tomou ${danoReal} de dano no HP.</span>`);
+        }
+    }
+
+    function actionAtk() {
+        if(currentOverloadState > 0) return customAlert("⚠️ EXAUSTÃO", "Você está acima do seu limite de carga!<br><br><strong>Você não consegue atacar.</strong> Descarte itens ou tome uma poção.");
+
+        let eqAtk = getEquippedTotal('atk') + getAccBuff('atk'); let forcaBase = player.finalStats.FOR; let lvlAtk = (player.level - 1);
+        
+        if(player.cls === "Mago" && eqAtk > 0) {
+            let manaCost = eqAtk * 3;
+            if(player.mp < manaCost) return customAlert("Faltou Mana! 🔮", `Para atacar com arma mágica de ATK +${eqAtk}, o Mago precisa de <strong>${manaCost} MP</strong>.<br>Você tem ${player.mp} MP.`);
+            player.mp -= manaCost; updateGameUI();
+        }
+
+        let d = tryRoll(); if(d === null) { spinDiceAnim('combat-dice', "❌"); return; }
+        
+        let total = d + forcaBase + eqAtk + lvlAtk; document.getElementById('combat-title').innerText = "⚔️ ATAQUE"; spinDiceAnim('combat-dice', d);
+        let magoTxt = (player.cls === "Mago" && eqAtk > 0) ? `<br><span style="color:var(--gem-blue); font-size:12px;">(-${eqAtk * 3} MP gasto)</span>` : '';
+        document.getElementById('combat-result-text').innerHTML = `Tributo/Nível: <strong>+${forcaBase + lvlAtk}</strong><br>Armas/Buffs: <strong>+${eqAtk}</strong>${magoTxt}<br><span style="font-size:22px; color:var(--gem-red); display:block; margin-top:10px;">DANO TOTAL: ${total}</span>`;
+        document.getElementById('combat-extra-actions').innerHTML = ''; openModal('modal-combat');
+    }
+
+    function actionSkill() {
+        if(currentOverloadState > 0) return customAlert("⚠️ EXAUSTÃO", "Você está acima do seu limite de carga!<br><br><strong>Você não tem energia para usar habilidades.</strong>");
+
+        let cData = CLASSES[player.cls]; let cost = cData.cost;
+        if(cData.costType === 'hp') {
+            if(player.hp <= cost) return customAlert("HP Insuficiente ❤️", `Você precisa de mais de ${cost} HP para sacrificar!`);
+            player.hp -= cost;
+        } else {
+            if(player.mp < cost) return customAlert("Mana Insuficiente 💎", `A habilidade custa ${cost} MP. Você tem ${player.mp}.`);
+            player.mp -= cost;
+        }
+        updateGameUI();
+
+        let d = tryRoll(); if(d === null) { spinDiceAnim('combat-dice', "❌"); return; }
+        document.getElementById('combat-title').innerText = "🔥 HABILIDADE"; spinDiceAnim('combat-dice', d);
+
+        let sHtml = '';
+        switch(player.cls) {
+            case 'Guerreiro': sHtml = `Dado + 5<br><span style="font-size:22px; color:var(--gem-red);">DANO FINAL: ${d + 5}</span>`; break;
+            case 'Arqueiro': sHtml = `Dado + 3<br><span style="font-size:20px; color:var(--gem-red);">DANO: ${d + 3} (Em TODOS Inimigos)</span>`; break;
+            case 'Mago': sHtml = `Dado + 10<br><span style="font-size:22px; color:var(--gem-blue);">DANO MÁGICO: ${d + 10}</span>`; break;
+            case 'Assassino': sHtml = `(Dado + ATK) x 3<br><span style="font-size:20px; color:var(--gem-red);">DANO: ${(d + player.finalStats.FOR + (player.level - 1) + getEquippedTotal('atk') + getAccBuff('atk')) * 3} + Veneno!</span>`; break;
+            case 'Necromante': sHtml = `<span style="color:purple; font-weight:bold;">Aponte para um aliado caído.<br>Ele revive com metade do HP!</span>`; break;
+            case 'Druida': sHtml = `<span style="color:green; font-weight:bold;">FORMA FERA!<br>Você tem +2 em ATK e DEF por 2 rodadas.</span>`; break;
+            case 'Soldado': sHtml = `<span style="color:var(--gold); font-weight:bold;">FALANGE!<br>Avise seus aliados: Ganharam +2 DEF nesta rodada.</span>`; break;
+            case 'Bardo': sHtml = `<span style="color:var(--gem-blue); font-weight:bold;">CANÇÃO!<br>Avise a equipe: Todos ganharam +2 ATK nesta rodada.</span>`; break;
+        }
+        document.getElementById('combat-result-text').innerHTML = `<strong style="color:var(--gem-red);">${cData.skill}</strong><hr style="border: 1px dashed rgba(0,0,0,0.1); margin:10px 0;">${sHtml}`;
+        document.getElementById('combat-extra-actions').innerHTML = ''; openModal('modal-combat');
+    }
+
+    function applyDirectDamage() {
+        let val = parseInt(document.getElementById('input-direct-dmg').value);
+        if(!isNaN(val) && val > 0) {
+            player.hp -= val; document.body.classList.add('taking-damage');
+            setTimeout(() => document.body.classList.remove('taking-damage'), 300);
+            updateGameUI(); closeModal('modal-damage'); document.getElementById('input-direct-dmg').value = '';
+        }
+    }
+
+    // --- INVENTÁRIO ---
+    function renderInventory() {
+        let list = document.getElementById('inventory-list'); list.innerHTML = '';
+        let atkC = 0; let defC = 0; let accC = 0;
+        let sorted = [...player.inventory].sort((a,b) => b.equipped - a.equipped);
+        
+        if(sorted.length === 0) list.innerHTML = `<div class="text-center" style="padding: 20px; color: var(--ink-light); font-style:italic;">Mochila vazia.</div>`;
+
+        sorted.forEach(i => {
+            if(i.equipped && i.type === 'atk') atkC++;
+            if(i.equipped && i.type === 'def') defC++;
+            if(i.equipped && i.type === 'acc') accC++;
+            
+            let icon = i.type === 'atk' ? '⚔️' : i.type === 'def' ? '🛡️' : (i.type === 'acc' ? '💍' : '🧪');
+            let txt = i.type === 'use' ? `Cura +${i.value} ${i.useType.toUpperCase()}` : 
+                      (i.type === 'acc' ? `Bônus: +${i.value} ${i.useType.toUpperCase()}` : `Poder: +${i.value}`);
+            
+            let weightHtml = `⚖️ ${i.weight}kg`;
+            if (i.equipped && i.type !== 'use') {
+                let currentW = Math.ceil(i.weight * 0.66);
+                weightHtml = `⚖️ <span style="text-decoration:line-through; color:#999; font-size:10px;">${i.weight}kg</span> <strong style="color:var(--gold);">${currentW}kg</strong>`;
+            }
+            
+            let btn = '';
+            if (i.type === 'use') {
+                btn = `<button class="btn btn-blue btn-small" style="padding: 6px 10px;" onclick="promptPotion(${i.id})">BEBER</button>`;
+            } else {
+                btn = `<button class="btn ${i.equipped ? 'btn-gold' : 'btn-outline'} btn-small" style="padding: 6px 10px;" onclick="toggleEq(${i.id})">${i.equipped ? 'DESEQUIPAR' : 'EQUIPAR'}</button>`;
+            }
+
+            list.innerHTML += `
+                <div class="list-item ${i.equipped ? 'equipped':''}">
+                    <div class="item-info">
+                        <span class="item-name">${icon} ${i.name}</span>
+                        <span class="item-val">${txt} | ${weightHtml}</span>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        ${btn}
+                        <button style="background:none; border:none; color:var(--gem-red); font-size:24px; font-weight:bold; cursor:pointer;" onclick="delItem(${i.id})">×</button>
+                    </div>
+                </div>`;
+        });
+        document.getElementById('inv-atk-count').innerText = atkC; 
+        document.getElementById('inv-def-count').innerText = defC;
+        document.getElementById('inv-acc-count').innerText = accC;
+    }
+
+    function toggleItemType() {
+        let type = document.getElementById('item-type').value;
+        document.getElementById('item-use-wrap').style.display = type === 'use' ? 'block' : 'none';
+        document.getElementById('item-acc-wrap').style.display = type === 'acc' ? 'block' : 'none';
+        updateWeightBarUI();
+    }
+
+    function openAddItemModal() {
+        document.getElementById('item-name').value = ''; document.getElementById('item-val').value = '';
+        document.getElementById('item-weight').value = ''; updateWeightBarUI();
+        openModal('modal-add-item');
+    }
+
+    function autoGenerateWeight() {
+        let type = document.getElementById('item-type').value;
+        let power = parseInt(document.getElementById('item-val').value) || 1;
+        let w = 1;
+        
+        if (type === 'use') w = Math.max(1, Math.ceil(power / 2) + Math.floor(Math.random() * 2));
+        else if (type === 'acc') w = Math.max(1, Math.ceil(power / 3) + Math.floor(Math.random() * 2));
+        else w = Math.max(1, Math.floor(power * 1.2) + Math.floor(Math.random() * 3));
+        
+        document.getElementById('item-weight').value = w; updateWeightBarUI();
+    }
+
+    function updateAutoWeightWarning() { updateWeightBarUI(); }
+
+    function updateWeightBarUI() {
+        let w = parseInt(document.getElementById('item-weight').value) || 0;
+        let bar = document.getElementById('weight-indicator-bar');
+        
+        let pct = Math.min(100, (w / 20) * 100);
+        bar.style.width = `${pct}%`; 
+        
+        if (w <= 5) bar.style.background = 'linear-gradient(90deg, #8bc34a, #388e3c)'; // Verde
+        else if (w <= 9) bar.style.background = 'linear-gradient(90deg, #ffca28, #f57f17)'; // Amarelo
+        else if (w <= 12) bar.style.background = 'linear-gradient(90deg, #ce93d8, #ab47bc)'; // Roxo Claro
+        else if (w <= 15) bar.style.background = 'linear-gradient(90deg, #8e24aa, #6a1b9a)'; // Roxo Escuro
+        else if (w <= 18) bar.style.background = 'linear-gradient(90deg, #4a148c, #21004a)'; // Quase Preto
+        else bar.style.background = '#0d0d0d'; // Preto absoluto
+    }
+
+    function saveItem() {
+        let name = document.getElementById('item-name').value.trim();
+        let type = document.getElementById('item-type').value;
+        let val = parseInt(document.getElementById('item-val').value) || 0;
+        let w = parseInt(document.getElementById('item-weight').value) || 0;
+        
+        if(!name) return customAlert("Sem Nome", "Você não pode criar um item invisível! Dê um nome a ele.");
+        if(val <= 0 || w <= 0) return customAlert("Valores", "O Poder/Cura e o Peso devem ser maiores que 0.");
+        
+        let maxLoad = getMaxLoad(); let currLoad = getCurrentLoad();
+        
+        if (currLoad > maxLoad) {
+            return customAlert("Mochila Quebrada 🎒", `Sua mochila já ultrapassou o limite (${currLoad}kg / ${maxLoad}kg).<br><br>Você precisa soltar ou consumir peso antes de pegar novos itens.`);
+        }
+
+        let useType = null;
+        if(type === 'use') useType = document.getElementById('item-use-type').value;
+        if(type === 'acc') useType = document.getElementById('item-acc-type').value;
+
+        player.inventory.push({ id: Date.now(), name: name, type: type, value: val, weight: w, useType: useType, equipped: false });
+        closeModal('modal-add-item'); renderInventory(); updateGameUI();
+    }
+    
+    function delItem(id) { 
+        customConfirm("Descartar Item", "Deseja jogar este item fora permanentemente?<br>O peso dele será liberado.", () => {
+            player.inventory = player.inventory.filter(i=>i.id!==id); renderInventory(); updateGameUI(); 
+        });
+    }
+    
+    function toggleEq(id) {
+        let item = player.inventory.find(i=>i.id===id);
+        if(!item.equipped) {
+            let limit = item.type === 'acc' ? 2 : 2;
+            let typeName = item.type === 'atk' ? 'Ataque' : (item.type === 'def' ? 'Defesa' : 'Acessórios');
+            let count = player.inventory.filter(i => i.type===item.type && i.equipped).length;
+            if(count >= limit) return customAlert("Limite em Uso", `Você já tem ${limit} itens de ${typeName} equipados no corpo.`);
+        }
+        item.equipped = !item.equipped;
+        recalcMaxStats(); 
+        renderInventory(); updateGameUI();
+    }
+
+    // --- POÇÕES ---
+    let potionToUse = null;
+    function useEmergencyPotion() {
+        let hpPotion = player.inventory.find(i => i.type === 'use' && i.useType === 'hp');
+        if(hpPotion) promptPotion(hpPotion.id);
+        else customAlert("Lamentável...", "Você está sangrando, quase morrendo... e <strong>não tem nenhuma poção de HP!</strong><br>Reze aos Deuses.");
+    }
+
+    function openPotionSelector() {
+        let pots = player.inventory.filter(i => i.type === 'use');
+        if(pots.length === 0) return customAlert("Mochila Vazia", "Você não tem poções consumíveis.");
+        let list = document.getElementById('potion-list-popup'); list.innerHTML = '';
+        pots.forEach(p => {
+            list.innerHTML += `<div class="list-item" style="box-shadow:none; border:1px solid rgba(0,0,0,0.1);"><div class="item-info"><span class="item-name">🧪 ${p.name}</span><span class="item-val">+${p.value} ${p.useType.toUpperCase()} | ⚖️ ${p.weight}kg</span></div><button class="btn btn-blue btn-small" onclick="promptPotion(${p.id})">BEBER</button></div>`;
+        });
+        openModal('modal-potions');
+    }
+
+    function promptPotion(id) {
+        potionToUse = player.inventory.find(i=>i.id===id); closeModal('modal-potions');
+        let curr = potionToUse.useType === 'hp' ? player.hp : player.mp;
+        let max = potionToUse.useType === 'hp' ? player.maxHp : player.maxMp;
+        let after = Math.min(max, curr + potionToUse.value);
+        
+        customConfirm("Beber Poção?", `Beber <strong>${potionToUse.name}</strong>?<br><br>Seu ${potionToUse.useType.toUpperCase()} vai de:<br><span style="font-size:20px; font-weight:bold;">${curr} ➔ <span style="color:var(--gem-blue);">${after}</span></span><br><br><span style="font-size:12px;">Isso alivia ${potionToUse.weight}kg de peso.</span>`, () => {
+            if(potionToUse.useType === 'hp') player.hp = after; else player.mp = after;
+            player.inventory = player.inventory.filter(i => i.id !== potionToUse.id);
+            potionToUse = null; updateGameUI();
+            if(document.getElementById('screen-inventory').classList.contains('active')) renderInventory();
+        });
+    }
+
+    // --- EXP E NÍVEL ---
+    function addExp() {
+        let val = parseInt(document.getElementById('input-exp').value);
+        if(isNaN(val) || val <= 0) return;
+        player.exp += val; let leveledUp = false;
+
+        while(player.exp >= getExpForNextLevel(player.level)) {
+            player.exp -= getExpForNextLevel(player.level);
+            player.level++; player.freePoints++; recalcMaxStats();
+            player.hp = player.maxHp; player.mp = player.maxMp; leveledUp = true;
+        }
+        closeModal('modal-exp'); document.getElementById('input-exp').value = ''; updateGameUI();
+        if(leveledUp) customAlert("🎉 NÍVEL UP!", `Você alcançou o <strong>Nível ${player.level}</strong>!<br><br>HP e MP restaurados! Você ganhou 1 Ponto na aba Atributos!`);
+    }
+
+    // --- TRIBUTOS ---
+    let pendingStatAllocation = null;
+    function renderAttributes() {
+        document.getElementById('level-up-banner').style.display = player.freePoints > 0 ? 'block' : 'none';
+        document.getElementById('attr-free-points').innerText = player.freePoints;
+        let list = document.getElementById('attributes-list'); list.innerHTML = '';
+        
+        for(let s in STAT_NAMES) {
+            let finalVal = player.finalStats[s];
+            let isSelected = pendingStatAllocation === s;
+            let btn = player.freePoints > 0 ? (isSelected ? `<button class="btn-gem-attr" style="background:var(--gem-blue); color:white; border-color:var(--gem-blue);">✓</button>` : `<button class="btn-gem-attr" onclick="selectStatPoint('${s}')">+</button>`) : '';
+            list.innerHTML += `
+            <div class="list-item ${isSelected ? 'selected' : ''}" style="margin-bottom:5px;">
+                <span class="item-name stat-clickable" onclick="openAttrInfo('${s}')">${STAT_NAMES[s]}</span>
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <span style="font-size:20px; font-weight:bold; font-family:'Cinzel'; ${isSelected ? 'color:var(--gem-blue);' : ''}">${isSelected ? finalVal + 1 : finalVal}</span>
+                    ${btn}
+                </div>
+            </div>`;
+        }
+        document.getElementById('btn-confirm-attr').style.display = pendingStatAllocation ? 'flex' : 'none';
+    }
+
+    function selectStatPoint(stat) { pendingStatAllocation = stat; renderAttributes(); }
+    function confirmStatPoint() {
+        if(pendingStatAllocation && player.freePoints > 0) {
+            player.finalStats[pendingStatAllocation]++; player.freePoints--; pendingStatAllocation = null;
+            recalcMaxStats(); renderAttributes(); updateGameUI();
+        }
+    }
+    
+    function openAttrInfo(stat) {
+        document.getElementById('detail-title').innerText = `Detalhes: ${STAT_NAMES[stat]}`;
+        document.getElementById('detail-content').innerHTML = `
+            <div class="detail-box"><strong>O que faz:</strong><br>${ATTRIBUTE_HELP[stat].desc}</div>
+            <div class="combat-result-box" style="margin-top:15px; background:rgba(212,175,55,0.1); border-color:var(--gold);">
+                ${ATTRIBUTE_HELP[stat].fn(player.finalStats[stat])}
+            </div>
+        `;
+        openModal('modal-details');
+    }
+
+    // --- AJUDA ---
+    function generateHelp() {
+        let h = `<strong style="font-size:16px;">🎲 COMBATE E RESSURREIÇÃO</strong><br>
+        1. Role o D20 e escolha ATK ou DEF.<br>2. Se morrer, apenas um aliado com poder de curar/reviver (ex: <strong>Necromante</strong>) pode te trazer de volta. Reviver custa EXP e corta atributos.<br><br>
+        <strong style="font-size:16px;">🎒 CARGA E ACESSÓRIOS</strong><br>
+        - Seu limite de peso aumenta com a Força. Passar o limite bloqueia ataques. Passar de 10% além disso começa a tirar vida de exaustão!<br>
+        - <strong>Acessórios (Max 2):</strong> Podem dar status bônus permanentes, ou curar HP/MP automaticamente a cada 10s.<br><br>`;
+        if(player.cls === "Mago") h += `<div style="background:rgba(25,118,210,0.1); padding:10px; border-left:4px solid var(--gem-blue); margin-bottom:15px;"><strong style="color:var(--gem-blue);">🧙 REGRA DO MAGO:</strong><br>Ataques normais gastam MP = (Poder da Arma x 3).</div>`;
+        let cData = CLASSES[player.cls];
+        if(cData) h += `<strong>🔥 HABILIDADE (${cData.skill})</strong><br>${cData.desc}<br><br>`;
+        h += `<strong>💡 DICAS DE UI</strong><br>- Aperte <kbd>Enter</kbd> no teclado para confirmar.<br>- Textos sublinhados mostram cálculos ocultos.`;
+        
+        document.getElementById('help-content').innerHTML = h; openModal('modal-help');
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>

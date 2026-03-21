@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#090a0f">
+<title>Mercado Pro | Alan Novais</title>
+
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%2300d4ff;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%2300ff88;stop-opacity:1' /%3E%3C/linearGradient%3E%3Cfilter id='b'%3E%3CfeGaussianBlur in='SourceGraphic' stdDeviation='2' /%3E%3C/filter%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='45' stroke='url(%23g)' stroke-width='3' fill='none' filter='url(%23b)' opacity='0.5'/%3E%3Cpath d='M30 40 h40 l-5 30 h-30 z' stroke='url(%23g)' stroke-width='4' fill='none'/%3E%3Ccircle cx='40' cy='78' r='5' fill='url(%23g)'/%3E%3Ccircle cx='60' cy='78' r='5' fill='url(%23g)'/%3E%3Cpath d='M30 40 l-5-10 h-5' stroke='url(%23g)' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+/* --- VARIÁVEIS E TEMA SPACE/DARK --- */
+:root {
+    --bg-deep: #090a0f;
+    --bg-space: #1b2735;
+    --primary-neon: #00ff88;
+    --secondary-neon: #00d4ff;
+    --accent-neon: #a55eea;
+    --danger-neon: #ff4757;
+    --whatsapp: #2ecc71;
+    --text-main: #e0e6ed;
+    --text-muted: #94a3b8;
+    --card-bg: rgba(255, 255, 255, 0.04);
+    --modal-bg: #11141d;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --glass: blur(12px) saturate(180%);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-deep);
+    color: var(--text-main);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden; 
+    display: flex;
+    flex-direction: column;
+}
+
+.screen {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 20px;
+    padding-bottom: 100px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    z-index: 1;
+    background-color: var(--bg-deep);
+    background-image: radial-gradient(circle at center, var(--bg-space) 0%, var(--bg-deep) 100%);
+}
+
+.active { display: block; animation: fadeIn 0.4s ease; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.screen::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: 
+        radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1.5px 1.5px at 100px 160px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 200px 250px, #fff, rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 300px 300px;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: -1;
+}
+
+header { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; }
+.brand-sub { font-size: 0.7rem; font-weight: bold; color: var(--secondary-neon); text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 8px var(--secondary-neon); }
+.list-spacer { height: 90px; width: 100%; }
+
+.item-card { background: var(--card-bg); backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass); margin: 10px 0; padding: 16px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: transform 0.2s; cursor: pointer; }
+.item-card:active { transform: scale(0.98); background: rgba(255,255,255,0.08); }
+.item-main-info { flex: 1; text-align: left;}
+.item-name { font-weight: 700; font-size: 1.1rem; color: #fff; }
+.item-details-line { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.item-qty-tag { font-size: 0.75rem; background: rgba(0, 212, 255, 0.1); color: var(--secondary-neon); padding: 2px 8px; border-radius: 8px; font-weight: 600; border: 1px solid rgba(0, 212, 255, 0.2); }
+.item-price-info { text-align: right; margin-left: 10px; }
+.price-pending { color: #f39c12; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;}
+.price-paid { color: var(--primary-neon); font-weight: 800; font-size: 1.1rem; text-shadow: 0 0 10px rgba(0,255,136,0.3); }
+.pago { color: var(--text-muted); text-decoration: line-through; opacity: 0.6; }
+.pago .item-name { color: var(--text-muted); }
+.pago .item-qty-tag { background: rgba(255,255,255,0.05); color: var(--text-muted); border-color: transparent;}
+.section-title { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; margin: 20px 0 10px 5px; text-align: left; }
+
+.btn { border-radius: 12px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: inherit; }
+.btn:active { transform: scale(0.97); }
+.btn-large { width: 100%; padding: 16px; font-size: 1rem; margin-bottom: 15px; }
+.btn-primary { background: linear-gradient(135deg, var(--secondary-neon), var(--accent-neon)); color: white; box-shadow: 0 4px 15px rgba(0,212,255,0.3); }
+.btn-success { background: linear-gradient(135deg, var(--primary-neon), #2ecc71); color: #090a0f; box-shadow: 0 4px 15px rgba(0,255,136,0.3); }
+.btn-outline { background: transparent; color: var(--secondary-neon); border: 2px solid var(--secondary-neon); box-shadow: 0 0 10px rgba(0,212,255,0.1); }
+#btn-novo-topo { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--border-color); margin-bottom: 20px; }
+#btn-novo-topo i { color: var(--primary-neon); }
+
+input, textarea { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border-color); border-radius: 10px; font-size: 16px; box-sizing: border-box; outline: none; background-color: rgba(0,0,0,0.2); color: white; font-family: inherit; }
+input:focus, textarea:focus { border-color: var(--secondary-neon); background-color: rgba(0,0,0,0.4); box-shadow: 0 0 10px rgba(0,212,255,0.2); }
+::placeholder { color: rgba(255,255,255,0.3); }
+
+#search-container { display: none; position: sticky; top: 85px; z-index: 40; margin-bottom: 10px; animation: slideDown 0.3s ease; }
+@keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#in-search { background: rgba(17, 20, 29, 0.9); backdrop-filter: blur(10px); border: 1px solid var(--secondary-neon); box-shadow: 0 5px 20px rgba(0,0,0,0.5); padding-right: 40px; }
+#close-search { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+
+#sticky-finance-header { position: sticky; top: 0; margin: -20px -20px 15px -20px; padding: 15px 20px 10px 20px; background: rgba(9, 10, 15, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); z-index: 50; border-radius: 0 0 16px 16px; }
+.finance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.finance-item { text-align: left; }
+.fin-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.fin-val { font-size: 1.1rem; font-weight: 800; color: #fff; }
+#val-total { color: var(--primary-neon); text-shadow: 0 0 10px rgba(0,255,136,0.3); }
+#val-saldo { text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+.saldo-ok { color: var(--secondary-neon); }
+.saldo-warning { color: #f39c12; }
+.saldo-danger { color: var(--danger-neon); animation: pulseRed 1.5s infinite; }
+@keyframes pulseRed { 0% { text-shadow: 0 0 5px var(--danger-neon); } 50% { text-shadow: 0 0 15px var(--danger-neon); } 100% { text-shadow: 0 0 5px var(--danger-neon); } }
+
+.progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.03); }
+#progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--secondary-neon), var(--primary-neon)); border-radius: 3px; transition: width 0.3s ease, background 0.3s ease; box-shadow: 0 0 10px var(--primary-neon); }
+
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 100; animation: fadeInBg 0.3s ease; }
+.modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background: var(--modal-bg); border: 1px solid var(--border-color); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; z-index: 110; text-align: left; box-shadow: 0 20px 50px rgba(0,0,0,0.7); animation: modalIn 0.3s ease forwards; }
+#modal-item.modo-prep { border-color: var(--accent-neon); box-shadow: 0 0 20px rgba(165, 94, 234, 0.2); }
+#modal-item.modo-mercado { border-color: var(--primary-neon); box-shadow: 0 0 20px rgba(0, 255, 136, 0.2); }
+@keyframes fadeInBg { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalIn { to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h3 { margin: 0; font-size: 1.3rem; color: #fff; }
+.btn-close-modal { background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0; }
+.input-row { display: flex; gap: 10px; }
+.input-group { flex: 1; }
+.input-label { font-size: 0.75rem; color: var(--text-muted); margin-left: 5px; }
+#btn-excluir-item { background: rgba(255, 71, 87, 0.1); color: var(--danger-neon); border: 1px solid rgba(255, 71, 87, 0.3); margin-top: 15px; }
+
+.fab-container { position: fixed; bottom: 30px; right: 25px; z-index: 90; display: none; }
+.fab-main { width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--secondary-neon), var(--accent-neon)); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 5px 20px rgba(0,212,255,0.4); border: none; cursor: pointer; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s; position: relative; z-index: 2; }
+.fab-main:active { transform: scale(0.9); }
+.fab-container.open .fab-main { transform: rotate(135deg); background: var(--bg-space); border: 2px solid var(--accent-neon); color: var(--accent-neon); box-shadow: 0 0 15px var(--accent-neon); }
+
+.fab-menu { position: absolute; bottom: 75px; right: 7px; display: flex; flex-direction: column-reverse; gap: 15px; pointer-events: none; z-index: 1; }
+.fab-item { width: 45px; height: 45px; border-radius: 50%; background: var(--modal-bg); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 1px solid var(--border-color); cursor: pointer; opacity: 0; transform: translateY(20px) scale(0.5); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
+.fab-label { position: absolute; right: 55px; background: rgba(0,0,0,0.8); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; white-space: nowrap; backdrop-filter: blur(5px); border: 1px solid var(--border-color); opacity: 0; transition: opacity 0.3s ease 0.1s; pointer-events: none; }
+
+.fab-container.open .fab-menu { pointer-events: auto; }
+.fab-container.open .fab-item { opacity: 1; transform: translateY(0) scale(1); }
+.fab-container.open .fab-item .fab-label { opacity: 1; }
+
+.fab-item.btn-orcamento { color: var(--accent-neon); border-color: var(--accent-neon); }
+.fab-item.btn-export { color: var(--secondary-neon); border-color: var(--secondary-neon); }
+.fab-item.btn-mercado { color: var(--primary-neon); border-color: var(--primary-neon); }
+.fab-item.btn-add-quick { color: var(--primary-neon); border-color: var(--primary-neon); background: rgba(0,255,136,0.1); }
+.fab-item.btn-search { color: var(--secondary-neon); border-color: var(--secondary-neon); }
+.fab-item.btn-edit { color: var(--text-muted); border-color: var(--text-muted); }
+.fab-item.btn-finish { color: #fff; background: var(--whatsapp); border: none; }
+
+.fab-container.open .fab-item:nth-child(1) { transition-delay: 0.05s; }
+.fab-container.open .fab-item:nth-child(2) { transition-delay: 0.1s; }
+.fab-container.open .fab-item:nth-child(3) { transition-delay: 0.15s; }
+.fab-container.open .fab-item:nth-child(4) { transition-delay: 0.2s; }
+
+#screen-home { text-align: center; flex-direction: column; justify-content: center; align-items: center; z-index: 2; }
+#screen-home.active { display: flex; }
+.logo-svg { width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 0 15px var(--secondary-neon)); animation: logoPulse 4s infinite ease-in-out; }
+@keyframes logoPulse { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px var(--secondary-neon)); } 50% { transform: scale(1.05); filter: drop-shadow(0 0 25px var(--primary-neon)); } }
+.home-title { font-size: 2.2rem; font-weight: 800; margin: 0; background: linear-gradient(135deg, #fff, var(--secondary-neon)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.home-dev { color: var(--text-muted); font-size: 0.8rem; letter-spacing: 2px; margin-top: 5px; margin-bottom: 50px; }
+.version-link { margin-top: auto; color: var(--text-muted); font-size: 0.75rem; text-decoration: none; padding: 10px; opacity: 0.6; }
+#modal-changelog ul { list-style: none; padding: 0; margin: 0; }
+#modal-changelog li { margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;}
+#modal-changelog .v-num { color: var(--secondary-neon); font-weight: bold; }
+#modal-changelog .v-date { color: var(--text-muted); font-size: 0.8rem; margin-left: 10px; }
+#modal-changelog p { margin: 5px 0 0; font-size: 0.9rem; color: var(--text-main); }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="main-overlay" onclick="closeAllModals()"></div>
+
+<div class="modal" id="modal-item">
+    <div class="modal-header">
+        <h3 id="modal-titulo">✍️ Detalhes</h3>
+        <button class="btn-close-modal" onclick="closeAllModals()">&times;</button>
+    </div>
+    <div class="input-group" id="group-nome">
+        <span class="input-label">Nome do Produto</span>
+        <input type="text" id="in-nome" placeholder="Ex: Arroz Tio João">
+    </div>
+    <div class="input-row">
+        <div class="input-group">
+            <span class="input-label">Quantidade</span>
+            <input type="number" id="in-qty" placeholder="1" inputmode="numeric">
+        </div>
+        <div class="input-group" id="group-preco" style="display: none;">
+            <span class="input-label">Valor Unitário (R$)</span>
+            <input type="text" id="in-preco" placeholder="0,00" inputmode="decimal">
+        </div>
+    </div>
+    <button class="btn btn-large btn-primary" id="btn-salvar-item" onclick="processSaveItem()">
+        <i class="fas fa-check-circle"></i> Confirmar
+    </button>
+    <button class="btn btn-outline btn-large" id="btn-lista-pronta" onclick="finalizarCadastroRapido()" style="display: none;">
+        LISTA PRONTA <i class="fas fa-rocket"></i>
+    </button>
+    <button class="btn btn-large" id="btn-excluir-item" onclick="deleteItem()" style="display: none;">
+        <i class="fas fa-trash-alt"></i> Excluir Item
+    </button>
+</div>
+
+<div class="modal" id="modal-orcamento">
+    <div class="modal-header">
+        <h3>💰 Definir Orçamento</h3>
+        <button class="btn-close-modal" onclick="closeAllModals()">&times;</button>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">Quanto você pretende gastar hoje?</p>
+    <input type="text" id="in-orcamento-val" placeholder="0,00" inputmode="decimal" style="font-size: 1.5rem; text-align: center; color: var(--secondary-neon); font-weight: 800;">
+    <button class="btn btn-large btn-primary" onclick="saveBudget()">Definir <i class="fas fa-coins"></i></button>
+</div>
+
+<div class="modal" id="modal-importar">
+    <div class="modal-header">
+        <h3>📋 Importar Lista</h3>
+        <button class="btn-close-modal" onclick="closeAllModals()">&times;</button>
+    </div>
+    <textarea id="txt-importar" rows="8" placeholder="Cole aqui seu texto..."></textarea>
+    <button class="btn btn-large btn-primary" onclick="processImport()"><i class="fas fa-file-import"></i> Processar Agora</button>
+</div>
+
+<div class="modal" id="modal-finish">
+    <div class="modal-header">
+        <h3>🏁 Encerrar Compra</h3>
+        <button class="btn-close-modal" onclick="closeAllModals()">&times;</button>
+    </div>
+    <p style="text-align: center; color: var(--primary-neon); font-size: 1.2rem; font-weight: 800; margin: 0 0 20px 0;">Total: R$ <span id="finish-total-val">0,00</span></p>
+    <button class="btn btn-large" style="background:var(--whatsapp); color:white" onclick="exportReceipt()"><i class="fab fa-whatsapp"></i> Enviar Recibo</button>
+    <div style="border-top: 1px solid var(--border-color); margin-top: 20px; padding-top: 15px;">
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0; text-align: center;">Como deseja deixar a lista para a próxima?</p>
+        <div class="input-row">
+            <button class="btn btn-outline" style="flex:1; font-size:0.8rem; border-color:var(--text-muted); color: var(--text-muted);" onclick="resetApp('prices')"><i class="fas fa-eraser"></i> Zerar Preços</button>
+            <button class="btn btn-outline" style="flex:1; font-size:0.8rem; border-color:var(--danger-neon); color: var(--danger-neon);" onclick="resetApp('all')"><i class="fas fa-trash-alt"></i> Apagar Tudo</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="modal-changelog">
+    <div class="modal-header">
+        <h3>🚀 O que há de novo</h3>
+        <button class="btn-close-modal" onclick="closeAllModals()">&times;</button>
+    </div>
+    <div style="max-height: 350px; overflow-y: auto; padding-right: 5px;">
+        <ul>
+            <li>
+                <span class="v-num">v3.3</span><span class="v-date">Atual</span>
+                <p>• Máscara Inteligente: Aceita digitação de valores usando tanto vírgula (,) quanto ponto (.), facilitando o uso do teclado numérico.</p>
+                <p>• Separação de Milhares visual adicionada aos totais gerais para facilitar a leitura (ex: 1.722,11).</p>
+            </li>
+            <li>
+                <span class="v-num">v3.2</span>
+                <p>• Exportação Limpa sem emojis para facilitar a futura reimportação e envios corporativos.</p>
+            </li>
+            <li>
+                <span class="v-num">v3.1</span>
+                <p>• Correção Crítica de clique nos itens na tela de mercado e restauração de histórico.</p>
+            </li>
+            <li>
+                <span class="v-num">v3.0</span>
+                <p>• Auto-Cura de Dados e blindagem contra cache no PC. Logs detalhados no F12.</p>
+            </li>
+            <li>
+                <span class="v-num">v2.1</span>
+                <p>• Adição Contínua para inserção ágil, leitura de texto inteligente e atalho "ESC".</p>
+            </li>
+            <li>
+                <span class="v-num">v2.0</span>
+                <p>• Identidade Visual Space/Dark, Sistema de Orçamento e Menu Flutuante (FAB).</p>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div id="screen-home" class="screen active">
+    <svg class="logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#00ff88;stop-opacity:1" />
+            </linearGradient>
+            <filter id="glow">
+                <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+                <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+        </defs>
+        <circle cx="50" cy="50" r="45" stroke="url(#logoGrad)" stroke-width="2" fill="none" opacity="0.3"/>
+        <g filter="url(#glow)">
+            <path d="M30 40 h40 l-5 30 h-30 z" stroke="url(#logoGrad)" stroke-width="4" fill="none" stroke-linejoin="round"/>
+            <circle cx="40" cy="78" r="5" fill="url(#logoGrad)"/>
+            <circle cx="60" cy="78" r="5" fill="url(#logoGrad)"/>
+            <path d="M30 40 l-5-10 h-5" stroke="url(#logoGrad)" stroke-width="4" stroke-linecap="round" fill="none"/>
+            <path d="M50 20 v10 M45 25 h10" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        </g>
+    </svg>
+    <h1 class="home-title">Mercado Pro</h1>
+    <p class="home-dev">BY ALAN NOVAIS</p>
+
+    <button class="btn btn-large btn-success" onclick="startNewList()"><i class="fas fa-plus-circle"></i> Começar Lista Nova</button>
+    <button class="btn btn-large btn-outline" onclick="showModal('importar')"><i class="fas fa-paste"></i> Importar Lista</button>
+    <a href="#" class="version-link" onclick="showModal('changelog')">v3.3 Interestelar • Novidades</a>
+</div>
+
+<div id="screen-prep" class="screen">
+    <header><div class="brand-sub">Lista de Mercado • Editor</div></header>
+    <button class="btn btn-large" id="btn-novo-topo" onclick="openModalAddPrep()"><i class="fas fa-plus"></i> Novo Item</button>
+    <div id="lista-prep-container"></div>
+    <div id="prep-empty-msg" style="display:none; text-align:center; color:var(--text-muted); margin-top:50px; font-size:0.9rem;">
+        <i class="fas fa-rocket" style="font-size:3rem; color:var(--bg-space); margin-bottom:15px;"></i><br>
+        Sua lista está orbitando o vazio.<br>Adicione itens ou importe um texto!
+    </div>
+    <div class="list-spacer"></div>
+
+    <div class="fab-container" id="fab-prep">
+        <button class="fab-main" onclick="toggleFab('fab-prep')"><i class="fas fa-th-list"></i></button>
+        <div class="fab-menu">
+            <button class="fab-item btn-mercado" onclick="goToMarket()"><i class="fas fa-shopping-cart"></i><span class="fab-label">Ir para o Mercado</span></button>
+            <button class="fab-item btn-export" onclick="exportTextList()"><i class="fas fa-share-alt"></i><span class="fab-label">Exportar Texto</span></button>
+            <button class="fab-item btn-orcamento" onclick="openBudgetModal()"><i class="fas fa-coins"></i><span class="fab-label">Definir Orçamento</span></button>
+        </div>
+    </div>
+</div>
+
+<div id="screen-mercado" class="screen">
+    <div id="sticky-finance-header">
+        <div class="finance-grid">
+            <div class="finance-item">
+                <div class="fin-label">Total Gasto</div>
+                <div class="fin-val" id="val-total">R$ 0,00</div>
+            </div>
+            <div class="finance-item" style="text-align: right;">
+                <div class="fin-label" id="label-saldo-tipo">Orçamento Saldo</div>
+                <div class="fin-val saldo-ok" id="val-saldo">R$ 0,00</div>
+            </div>
+        </div>
+        <div class="progress-container"><div id="progress-bar"></div></div>
+    </div>
+    <div id="search-container">
+        <input type="text" id="in-search" placeholder="🔍 Digite para filtrar..." oninput="triggerSearch()">
+        <i class="fas fa-times-circle" id="close-search" onclick="toggleSearch(false)"></i>
+    </div>
+    <div id="mercado-list-content"></div>
+    <div class="list-spacer"></div>
+
+    <div class="fab-container" id="fab-mercado">
+        <button class="fab-main" onclick="toggleFab('fab-mercado')"><i class="fas fa-shopping-basket"></i></button>
+        <div class="fab-menu">
+            <button class="fab-item btn-finish" onclick="openFinishModal()"><i class="fas fa-check-double"></i><span class="fab-label">Finalizar</span></button>
+            <button class="fab-item btn-edit" onclick="goToPrep()"><i class="fas fa-edit"></i><span class="fab-label">Voltar a Editar</span></button>
+            <button class="fab-item btn-search" onclick="toggleSearch(true)"><i class="fas fa-search"></i><span class="fab-label">Pesquisar Item</span></button>
+            <button class="fab-item btn-add-quick" onclick="openQuickAddMarket()"><i class="fas fa-plus"></i><span class="fab-label">Adição Rápida</span></button>
+        </div>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'MercadoPro_v2_Data';
+let appData = { budget: 0, items: [] };
+let editingItemId = null;
+let currentMode = 'prep'; 
+let currentSearchTerm = "";
+
+window.onload = function() {
+    loadData();
+    if (appData.items.length > 0) navigateTo('screen-prep');
+    setupInputMasks();
+    setupGlobalKeys();
+};
+
+function loadData() {
+    try {
+        const savedInfo = localStorage.getItem(STORAGE_KEY);
+        if (savedInfo) { 
+            const parsed = JSON.parse(savedInfo);
+            if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
+                appData = parsed; 
+            }
+        } 
+    } catch (e) {}
+}
+
+function saveData() { 
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); } catch (e) {}
+}
+
+function vibrateFeedback(type = 'light') {
+    try {
+        if (!("vibrate" in navigator)) return;
+        if (type === 'light') navigator.vibrate(20);
+        else if (type === 'medium') navigator.vibrate(50);
+        else if (type === 'success') navigator.vibrate([30, 50, 30]);
+    } catch (e) { }
+}
+
+function navigateTo(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.fab-container').forEach(f => { f.classList.remove('open'); f.style.display = 'none'; });
+    
+    const target = document.getElementById(screenId);
+    if(target) {
+        target.classList.add('active');
+        target.scrollTop = 0; 
+    }
+
+    if (screenId === 'screen-prep') {
+        renderPrepList();
+        document.getElementById('fab-prep').style.display = 'block';
+    } else if (screenId === 'screen-mercado') {
+        currentSearchTerm = "";
+        document.getElementById('in-search').value = "";
+        toggleSearch(false);
+        renderMarketList();
+        document.getElementById('fab-mercado').style.display = 'block';
+    }
+}
+
+// FORMATADOR CENTRAL: Lida com a diferença entre "Exibição" (1.722,11) e "Input" (1722,11)
+function formatMoney(val, isInput = false) { 
+    const numero = parseFloat(val) || 0;
+    if (isInput) {
+        // Formato para dentro da caixa de texto (sem ponto de milhar para não quebrar a edição)
+        return numero.toFixed(2).replace('.', ',');
+    }
+    // Formato visual para totais e recibos (com ponto de milhar nativo do Brasil)
+    return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function inputToFloat(str) { if (!str) return 0; return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0; }
+
+function setupInputMasks() {
+    const moneyInputs = ['in-preco', 'in-orcamento-val'];
+    moneyInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if(input){
+            input.addEventListener('focus', () => setTimeout(() => input.select(), 50));
+            input.addEventListener('input', (e) => {
+                let val = e.target.value;
+                // Transforma ponto em vírgula dinamicamente (para facilitar o teclado numérico)
+                val = val.replace(/\./g, ',');
+                // Remove caracteres indesejados
+                val = val.replace(/[^\d,]/g, "");
+                // Impede mais de uma vírgula
+                const points = val.split(',');
+                if (points.length > 2) val = points[0] + ',' + points.slice(1).join('');
+                e.target.value = val;
+            });
+        }
+    });
+    const qtyInput = document.getElementById('in-qty');
+    if(qtyInput) qtyInput.addEventListener('focus', () => setTimeout(() => qtyInput.select(), 50));
+}
+
+function setupGlobalKeys() {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeAllModals();
+    });
+
+    const mapping = [
+        { from: 'in-nome', to: 'in-qty' },
+        { from: 'in-qty', to: 'in-preco', condition: () => currentMode === 'mercado' },
+        { from: 'in-qty', action: () => processSaveItem(), condition: () => currentMode === 'prep' },
+        { from: 'in-preco', action: () => processSaveItem() }
+    ];
+
+    mapping.forEach(map => {
+        const input = document.getElementById(map.from);
+        if(input){
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if(map.from === 'in-nome' && input.value.trim() === "") { closeAllModals(); return; }
+                    if (map.to && (!map.condition || map.condition())) document.getElementById(map.to).focus();
+                    else if (map.action) map.action();
+                }
+            });
+        }
+    });
+
+    document.getElementById('in-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('in-search').blur(); } });
+    document.getElementById('in-orcamento-val').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveBudget(); } });
+}
+
+function showModal(modalId) { document.getElementById('main-overlay').style.display = 'block'; document.getElementById('modal-'+modalId).style.display = 'block'; }
+function closeAllModals() { document.querySelectorAll('.overlay, .modal').forEach(el => el.style.display = 'none'); document.activeElement.blur(); editingItemId = null; }
+
+function toggleFab(fabId) {
+    vibrateFeedback('light');
+    const container = document.getElementById(fabId);
+    document.querySelectorAll('.fab-container').forEach(f => { if(f.id !== fabId) f.classList.remove('open'); });
+    container.classList.toggle('open');
+}
+
+function startNewList() { 
+    vibrateFeedback('medium'); 
+    appData = { budget: 0, items: [] }; 
+    saveData(); 
+    navigateTo('screen-prep'); 
+}
+
+function openModalAddPrep() {
+    currentMode = 'prep'; editingItemId = null;
+    document.getElementById('modal-item').className = 'modal modo-prep';
+    document.getElementById('modal-titulo').innerText = "🚀 Novo Item";
+    document.getElementById('group-preco').style.display = 'none';
+    document.getElementById('btn-excluir-item').style.display = 'none';
+    document.getElementById('btn-lista-pronta').style.display = appData.items.length > 0 ? 'block' : 'none';
+    document.getElementById('in-nome').value = ""; document.getElementById('in-qty').value = "1";
+    showModal('item'); setTimeout(() => document.getElementById('in-nome').focus(), 350);
+}
+
+function openModalEditPrep(id) {
+    currentMode = 'prep'; editingItemId = id;
+    const item = appData.items.find(i => i.id === id); if (!item) return;
+    document.getElementById('modal-item').className = 'modal modo-prep';
+    document.getElementById('modal-titulo').innerText = "✏️ Editar Item";
+    document.getElementById('group-preco').style.display = 'none';
+    document.getElementById('btn-lista-pronta').style.display = 'none';
+    document.getElementById('btn-excluir-item').style.display = 'block';
+    document.getElementById('in-nome').value = item.nome; document.getElementById('in-qty').value = item.qty;
+    showModal('item'); setTimeout(() => document.getElementById('in-qty').focus(), 350);
+}
+
+function openBudgetModal() {
+    document.getElementById('in-orcamento-val').value = appData.budget > 0 ? formatMoney(appData.budget, true) : "";
+    showModal('orcamento');
+    toggleFab('fab-prep');
+    setTimeout(() => document.getElementById('in-orcamento-val').focus(), 350);
+}
+
+function finalizarCadastroRapido() {
+    const nome = document.getElementById('in-nome').value.trim();
+    if(nome) { 
+        appData.items.push({ 
+            id: Date.now() + Math.random(), 
+            nome: nome.charAt(0).toUpperCase() + nome.slice(1), 
+            qty: document.getElementById('in-qty').value.trim() || "1", 
+            preco: 0, 
+            pago: false 
+        }); 
+        saveData(); 
+    }
+    closeAllModals(); goToMarket();
+}
+
+function renderPrepList() {
+    const container = document.getElementById('lista-prep-container');
+    const emptyMsg = document.getElementById('prep-empty-msg');
+    container.innerHTML = "";
+    if (appData.items.length === 0) { emptyMsg.style.display = 'block'; return; }
+    emptyMsg.style.display = 'none';
+
+    [...appData.items].reverse().forEach(item => {
+        const card = document.createElement('div'); card.className = 'item-card'; card.onclick = () => openModalEditPrep(item.id);
+        card.innerHTML = `<div class="item-main-info"><span class="item-name">${item.nome}</span><div class="item-details-line"><span class="item-qty-tag">${item.qty}</span></div></div><div style="color:var(--text-muted); opacity:0.5;"><i class="fas fa-chevron-right"></i></div>`;
+        container.appendChild(card);
+    });
+}
+
+function openQuickAddMarket() {
+    currentMode = 'mercado'; editingItemId = null;
+    document.getElementById('modal-item').className = 'modal modo-mercado';
+    document.getElementById('modal-titulo').innerText = "➕ Adição Rápida";
+    document.getElementById('group-preco').style.display = 'block';
+    document.getElementById('btn-lista-pronta').style.display = 'none';
+    document.getElementById('btn-excluir-item').style.display = 'none';
+    document.getElementById('in-nome').value = ""; document.getElementById('in-qty').value = "1"; document.getElementById('in-preco').value = "";
+    showModal('item'); toggleFab('fab-mercado'); setTimeout(() => document.getElementById('in-nome').focus(), 350);
+}
+
+function openModalPay(id) {
+    currentMode = 'mercado'; editingItemId = id;
+    const item = appData.items.find(i => i.id === id); if (!item) return;
+    document.getElementById('modal-item').className = 'modal modo-mercado';
+    document.getElementById('modal-titulo').innerText = `🛒 Pagar: ${item.nome}`;
+    document.getElementById('group-preco').style.display = 'block';
+    document.getElementById('btn-lista-pronta').style.display = 'none';
+    document.getElementById('btn-excluir-item').style.display = 'block';
+    document.getElementById('in-nome').value = item.nome; document.getElementById('in-qty').value = item.qty;
+    // Passa 'true' para vir limpo (sem pontos) no input
+    document.getElementById('in-preco').value = item.preco > 0 ? formatMoney(item.preco, true) : "";
+    showModal('item'); setTimeout(() => { const inp = document.getElementById('in-preco'); inp.focus(); if(item.preco > 0) inp.select(); }, 350);
+}
+
+function toggleSearch(show) {
+    vibrateFeedback('light'); const container = document.getElementById('search-container'), input = document.getElementById('in-search');
+    if (show) { container.style.display = 'block'; input.focus(); toggleFab('fab-mercado'); } 
+    else { container.style.display = 'none'; input.value = ""; if(currentSearchTerm !== "") { currentSearchTerm = ""; renderMarketList(); } }
+}
+
+let searchTimer;
+function triggerSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { currentSearchTerm = document.getElementById('in-search').value.trim().toLowerCase(); renderMarketList(); }, 150);
+}
+
+function renderMarketList() {
+    const container = document.getElementById('mercado-list-content'); 
+    container.innerHTML = "";
+    
+    let listFiltered = currentSearchTerm ? appData.items.filter(i => i.nome.toLowerCase().includes(currentSearchTerm)) : appData.items;
+    
+    if (currentSearchTerm && listFiltered.length === 0) { 
+        container.innerHTML = `<div style="text-align:center; color:var(--text-muted); margin-top:30px; font-size:0.9rem;">Nenhum "voyager" chamado "${currentSearchTerm}" encontrado.</div>`; 
+        return; 
+    }
+
+    const pendentes = listFiltered.filter(i => !i.pago).sort((a,b) => a.nome.localeCompare(b.nome));
+    const pagos = listFiltered.filter(i => i.pago).sort((a,b) => a.nome.localeCompare(b.nome));
+
+    if (pendentes.length > 0) { 
+        if (!currentSearchTerm) container.insertAdjacentHTML('beforeend', `<div class="section-title">🛸 No Radar (${pendentes.length})</div>`); 
+        pendentes.forEach(i => container.appendChild(createMarketCard(i))); 
+    }
+    
+    if (pagos.length > 0) { 
+        if (!currentSearchTerm) container.insertAdjacentHTML('beforeend', `<div class="section-title">✅ No Carrinho (${pagos.length})</div>`); 
+        pagos.forEach(i => container.appendChild(createMarketCard(i))); 
+    }
+    
+    if(appData.items.length === 0 && !currentSearchTerm) {
+        container.innerHTML = `<div style="text-align:center; color:var(--text-muted); margin-top:50px; font-size:0.9rem;">Lista vazia. Volte para editar.</div>`;
+    }
+    
+    updateFinanceHeader();
+}
+
+function createMarketCard(item) {
+    const subtotal = (parseFloat(item.qty) || 1) * item.preco;
+    const card = document.createElement('div'); 
+    card.className = `item-card ${item.pago ? 'pago' : ''}`; 
+    card.onclick = () => openModalPay(item.id);
+    card.innerHTML = `<div class="item-main-info"><span class="item-name">${item.nome}</span><div class="item-details-line"><span class="item-qty-tag">${item.qty}</span>${item.pago ? `<span style="font-size:0.7rem; color:var(--text-muted);">x R$ ${formatMoney(item.preco)}</span>` : ''}</div></div><div class="item-price-info">${item.pago ? `<span class="price-paid">R$ ${formatMoney(subtotal)}</span>` : `<span class="price-pending">Pagar <i class="fas fa-hand-holding-usd"></i></span>`}</div>`;
+    return card;
+}
+
+function processSaveItem() {
+    const nome = document.getElementById('in-nome').value.trim();
+    const qty = document.getElementById('in-qty').value.trim() || "1";
+    const preco = currentMode === 'mercado' ? inputToFloat(document.getElementById('in-preco').value) : 0;
+
+    if (!nome) { vibrateFeedback('medium'); alert("O capitão exige um nome para o produto."); document.getElementById('in-nome').focus(); return; }
+
+    let isNewItem = (editingItemId === null);
+
+    if (isNewItem) {
+        appData.items.push({ 
+            id: Date.now() + Math.random(), 
+            nome: nome.charAt(0).toUpperCase() + nome.slice(1), 
+            qty: qty, 
+            preco: preco, 
+            pago: (currentMode === 'mercado' && preco > 0) 
+        });
+        vibrateFeedback('success');
+    } else {
+        const index = appData.items.findIndex(i => i.id === editingItemId);
+        if (index !== -1) {
+            appData.items[index].nome = nome; appData.items[index].qty = qty;
+            if (currentMode === 'mercado') {
+                appData.items[index].preco = preco;
+                if (preco > 0) { if(!appData.items[index].pago) vibrateFeedback('success'); appData.items[index].pago = true; } 
+                else { appData.items[index].pago = false; }
+            }
+        }
+    }
+
+    saveData();
+    if (currentMode === 'prep') renderPrepList(); else renderMarketList();
+
+    if (isNewItem) {
+        document.getElementById('in-nome').value = ""; document.getElementById('in-qty').value = "1";
+        if(currentMode === 'mercado') document.getElementById('in-preco').value = "";
+        document.getElementById('in-nome').focus();
+    } else { closeAllModals(); }
+}
+
+function deleteItem() {
+    if (!editingItemId) return;
+    const item = appData.items.find(i => i.id === editingItemId); if(!item) return;
+    if(!confirm(`Certeza que deseja ejetar "${item.nome}" para o espaço?`)) return;
+    vibrateFeedback('medium'); appData.items = appData.items.filter(i => i.id !== editingItemId); saveData(); closeAllModals();
+    if (currentMode === 'prep') renderPrepList(); else renderMarketList();
+}
+
+function saveBudget() { appData.budget = inputToFloat(document.getElementById('in-orcamento-val').value); saveData(); closeAllModals(); vibrateFeedback('success'); if(document.getElementById('screen-mercado').classList.contains('active')) updateFinanceHeader(); }
+
+function updateFinanceHeader() {
+    let totalGasto = 0; appData.items.forEach(i => { if (i.pago) totalGasto += ((parseFloat(i.qty) || 1) * i.preco); });
+    document.getElementById('val-total').innerText = `R$ ${formatMoney(totalGasto)}`;
+    const elSaldo = document.getElementById('val-saldo'), elLabelSaldo = document.getElementById('label-saldo-tipo'), progressBar = document.getElementById('progress-bar');
+    if (appData.budget > 0) {
+        elLabelSaldo.innerText = "Saldo Restante"; const saldo = appData.budget - totalGasto; elSaldo.innerText = `R$ ${formatMoney(saldo)}`;
+        const pct = (totalGasto / appData.budget) * 100; progressBar.style.width = `${Math.min(pct, 100)}%`;
+        elSaldo.className = "fin-val"; progressBar.style.boxShadow = "0 0 10px var(--primary-neon)";
+        if (saldo < 0) { elSaldo.classList.add('saldo-danger'); progressBar.style.background = 'var(--danger-neon)'; progressBar.style.boxShadow = "0 0 15px var(--danger-neon)"; } 
+        else if (pct > 80) { elSaldo.classList.add('saldo-warning'); progressBar.style.background = 'linear-gradient(90deg, #f39c12, var(--danger-neon))'; } 
+        else { elSaldo.classList.add('saldo-ok'); progressBar.style.background = 'linear-gradient(90deg, var(--secondary-neon), var(--primary-neon))'; }
+    } else { elLabelSaldo.innerText = "Orçamento não definido"; elSaldo.innerText = "---"; elSaldo.className = "fin-val"; progressBar.style.width = "0%"; }
+}
+
+function processImport() {
+    const texto = document.getElementById('txt-importar').value; 
+    if (!texto.trim()) { closeAllModals(); return; } 
+    vibrateFeedback('medium');
+    
+    const linhas = texto.split('\n'); 
+    let itensAdicionados = 0; 
+    const ignorar = ["RECIBO", "TOTAL", "DINHEIRO", "DEBITO", "CREDITO", "VOLTE", "CNPJ", "R$"];
+    
+    linhas.forEach(linha => {
+        let l = linha.trim(); 
+        if (!l || l.length < 2 || ignorar.some(k => l.toUpperCase().includes(k))) return;
+        
+        l = l.replace(/^[\s\-\*\•\>]+/, '').trim();
+        let qty = "1";
+        let nomeFinal = l;
+        
+        const matchQtdIni = l.match(/^(\d+)\s+(.+)/);         
+        const matchQtdParenteses = l.match(/(.+)\((\d+)\)/);  
+        const matchQtdFim = l.match(/(.+?)\s+(\d+)$/);        
+
+        if (matchQtdIni) { qty = matchQtdIni[1]; nomeFinal = matchQtdIni[2]; } 
+        else if (matchQtdParenteses) { qty = matchQtdParenteses[2]; nomeFinal = matchQtdParenteses[1]; } 
+        else if (matchQtdFim) { qty = matchQtdFim[2]; nomeFinal = matchQtdFim[1]; }
+        
+        nomeFinal = nomeFinal.replace(/R\$\s?[\d.,]+/gi, '').replace(/[-:]/g, '').trim();
+        
+        if (nomeFinal.length > 1) { 
+            appData.items.push({ 
+                id: Date.now() + Math.random(), 
+                nome: nomeFinal.charAt(0).toUpperCase() + nomeFinal.slice(1), 
+                qty: qty, 
+                preco: 0, 
+                pago: false 
+            }); 
+            itensAdicionados++; 
+        }
+    });
+    
+    document.getElementById('txt-importar').value = ""; 
+    saveData(); 
+    closeAllModals();
+    
+    if(itensAdicionados > 0) { vibrateFeedback('success'); navigateTo('screen-prep'); } 
+    else { alert("Não consegui identificar itens. Tente formatos como: '2 Arroz', 'Arroz (2)' ou 'Arroz 2'."); }
+}
+
+function exportTextList() {
+    toggleFab('fab-prep'); 
+    if (appData.items.length === 0) return;
+    
+    let txt = "";
+    [...appData.items].sort((a,b) => a.nome.localeCompare(b.nome)).forEach(i => {
+        txt += `${i.nome} ${i.qty}\n`;
+    });
+    
+    window.open(`https://wa.me/?text=${encodeURIComponent(txt.trim())}`, '_blank');
+}
+
+function openFinishModal() {
+    toggleFab('fab-mercado'); let total = 0; appData.items.forEach(i => { if(i.pago) total += ((parseFloat(i.qty) || 1) * i.preco); });
+    document.getElementById('finish-total-val').innerText = formatMoney(total, false); showModal('finish');
+}
+
+function exportReceipt() {
+    if (appData.items.length === 0) return; vibrateFeedback('medium');
+    let txt = `*🛒 RECIBO - ALAN NOVAIS*\n*Data:* ${new Date().toLocaleDateString('pt-BR')}\n--------------------------------\n`; let total = 0;
+    appData.items.filter(i => i.pago).sort((a,b) => a.nome.localeCompare(b.nome)).forEach(i => {
+        const sub = (parseFloat(i.qty) || 1) * i.preco; total += sub;
+        txt += `✅ *${i.nome}*\n   ${i.qty} x R$ ${formatMoney(i.preco, false)} = *R$ ${formatMoney(sub, false)}*\n`;
+    });
+    txt += `--------------------------------\n*TOTAL PAGO: R$ ${formatMoney(total, false)}*\n`;
+    if(appData.budget > 0 && (appData.budget - total) > 0) txt += `💰 _Economia de: R$ ${formatMoney(appData.budget - total, false)}_\n`;
+    txt += `--------------------------------\nEnviado via Mercado Pro v3.3 🚀`; window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+}
+
+function resetApp(type) {
+    if(!confirm(type === 'prices' ? "Manter nomes e zerar preços?" : "APAGAR TUDO?")) return; vibrateFeedback('medium');
+    if (type === 'prices') { appData.items.forEach(i => { i.preco = 0; i.pago = false; }); saveData(); closeAllModals(); navigateTo('screen-prep'); } 
+    else { appData = { budget: 0, items: [] }; saveData(); closeAllModals(); navigateTo('screen-home'); }
+}
+
+function goToMarket() { if (appData.items.length === 0) { alert("Sua lista está vazia."); return; } vibrateFeedback('medium'); navigateTo('screen-mercado'); }
+function goToPrep() { vibrateFeedback('light'); navigateTo('screen-prep'); }
+</script>
+</body>
+</html>

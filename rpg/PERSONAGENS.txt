@@ -1,0 +1,84 @@
+1. Guerreiro
+Bom em: Tankar dano, bloquear ataques físicos e carregar muito peso.
+
+Ruim em: Lidar com magias (costuma tomar dano cheio de feitiços) e persuasão.
+
+Habilidade Especial: Fúria Inabalável - Por um turno, o guerreiro ignora a dor, cortando todo o dano físico recebido pela metade e atraindo a atenção de todos os inimigos próximos para si.
+
+Modificadores: Força (+2), Vitalidade (+1), Inteligência (-2), Carisma (-1).
+
+
+
+2. Arqueiro
+Bom em: Acertar o ponto de longe, desviar de armadilhas e atacar primeiro.
+
+Ruim em: Combate corpo a corpo(pouca vida).
+
+Habilidade Especial: Chuva de Prata - Dispara múltiplas flechas para o alto, atingindo uma área inteira e causando dano a vários inimigos de uma só vez.
+
+Modificadores: Agilidade (+2), Sorte (+1), Força (-1), Vitalidade (-2).
+
+
+
+3. Mago
+Bom em: Ataque a distancia, dano mágico em área e pode quebrar selo magico amaldiçoado mais fácil(outros personagens precisam de recurso e/ou tem mais dificuldade e levam mais turnos)
+
+Ruim em: Qualquer coisa que envolva esforço físico. Se um inimigo chegar perto, ele tá lascado.
+
+Habilidade Especial: Colapso Arcano - Uma explosão mágica de poder bruto que causa dano massivo, mas esgota as energias do mago, fazendo-o perder o próximo turno.
+
+Modificadores: Inteligência (+3), Força (-2), Vitalidade (-1).
+
+
+
+4. Necromante
+Bom em: Criar vantagem numérica (invocando esqueletos) e magias que drenam a vida do inimigo aos poucos.
+
+Ruim em: Interações sociais (NPCs costumam ter medo ou nojo deles) e curar aliados.
+
+Habilidade Especial: Corrente de Almas - Suga a força vital de um inimigo para curar a si mesmo ou a um aliado, ou revive um corpo caído para lutar ao seu lado por tempo limitado.
+
+Modificadores: Inteligência (+2), Vitalidade (+1), Carisma (-2), Sorte (-1).
+
+
+
+5. Druida
+Bom em: Se adaptar a qualquer situação. Pode curar, bater ou tankar dependendo da forma que assumir. Ligação forte com animais.
+
+Ruim em: Usar equipamentos de metal e focar em um único tipo de dano extremo (é um "faz-tudo", mas não é o mestre em nada).
+
+Habilidade Especial: Metamorfose Selvagem - Transforma-se em uma fera (como um urso para defesa ou um lobo para ataque), trocando seus atributos de Inteligência por Força e Agilidade enquanto durar a forma.
+
+Modificadores: Inteligência (+1), Vitalidade (+1), Sorte (+1), Carisma (-1), Força (-2) (na forma humana).
+
+
+
+6. Soldado
+Bom em: Armas, trabalho em equipe, bônus táticos, usar qualquer tipo de arma ou armadura do jogo sem penalidade.
+
+Ruim em: Dano explosivo (burst). Ele vence pela consistência, não por um único golpe milagroso.
+
+Habilidade Especial: Formação de Falange - Grita ordens táticas que aumentam temporariamente a defesa e a precisão de todos os aliados que estiverem próximos dele.
+
+Modificadores: Força (+1), Agilidade (+1), Carisma (+1), Sorte (-1), Inteligência (-1).
+
+
+
+7. Assassino
+Bom em: Entrar furtivamente, dar dano crítico altíssimo e eliminar alvos isolados.
+
+Ruim em: Combates longos contra muitos inimigos de frente e trabalhar no meio do fogo cruzado.
+
+Habilidade Especial: Golpe das Sombras - Se atacar um inimigo que não o viu, causa dano triplo garantido e tem chance de aplicar envenenamento.
+
+Modificadores: Agilidade (+3), Sorte (+1), Vitalidade (-2), Carisma (-2).
+
+
+
+8. Bardo
+Bom em: Suporte máximo, passar na lábia por guardas, inspirar a equipe e conseguir descontos com mercadores.
+
+Ruim em: Bater de frente com os monstros (baixo dano físico ou mágico direto).
+
+Habilidade Especial: Canção da Fagulha - Toca um acorde inspirador e enérgico que acende a vontade de lutar da equipe. Remove condições negativas (como medo) e aumenta força de ataque temporária.
+Modificadores: Carisma (+3), Sorte (+1), Força (-2), Vitalidade (-1).

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alan Novais | Laboratório Criativo</title>
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M20 80 L50 20 L80 80' stroke='%2300d4ff' stroke-width='8' fill='none'/%3E%3Cpath d='M40 60 H60' stroke='%2300ff88' stroke-width='8'/%3E%3C/svg%3E">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg: #05070a;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --primary: #00ff88;
+            --secondary: #00d4ff;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --glass: blur(12px);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; transition: all 0.3s ease; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, #0f172a 0%, #05070a 100%);
+            z-index: -1;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+
+        /* --- HEADER / TECH LOGO --- */
+        header {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+
+        .logo-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 20px;
+            filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.4));
+        }
+
+        .tech-logo-svg {
+            width: 500px;
+            height: auto;
+            max-width: 90vw;
+        }
+
+        /* --- HERO SECTION --- */
+        .hero {
+            text-align: center;
+            padding-bottom: 80px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 40%, var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* --- APP GRID --- */
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            color: var(--primary);
+            margin-bottom: 40px;
+            text-align: center;
+            opacity: 0.6;
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 100px;
+        }
+
+        .app-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            backdrop-filter: var(--glass);
+            position: relative;
+        }
+
+        .app-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary);
+            box-shadow: 0 15px 35px rgba(0, 255, 136, 0.1);
+        }
+
+        .app-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: var(--secondary);
+        }
+
+        .app-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .app-card p {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            margin-bottom: 25px;
+        }
+
+        .btn-access {
+            display: inline-block;
+            padding: 12px 35px;
+            background: #fff;
+            color: #000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .app-card:hover .btn-access {
+            background: var(--primary);
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            text-align: center;
+            padding: 60px 0 40px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .social-links a { color: var(--text-dim); font-size: 1.4rem; }
+        .social-links a:hover { color: var(--secondary); transform: translateY(-3px); }
+
+        .footer-note {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            max-width: 400px;
+            margin: 15px auto;
+            line-height: 1.5;
+        }
+
+        .footer-note a {
+            color: var(--secondary);
+            text-decoration: none;
+        }
+
+        .footer-note a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2.2rem; }
+            header { padding: 50px 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <svg class="tech-logo-svg" viewBox="0 0 500 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--secondary);stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:var(--primary);stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+
+                    <g stroke="url(#logoGrad)" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M40 90 L70 30 L100 90" opacity="0.9" />
+                        <path d="M55 65 H85" opacity="0.9" />
+                        <path d="M110 90 V30 L150 90 V30" />
+                    </g>
+
+                    <text x="180" y="75" font-family="Arial, sans-serif" font-size="52" font-weight="900" fill="white" style="letter-spacing: 8px; text-transform: uppercase;">
+                        Alan
+                    </text>
+                    <text x="180" y="105" font-family="Arial, sans-serif" font-size="20" font-weight="400" fill="url(#logoGrad)" style="letter-spacing: 12px; text-transform: uppercase; opacity: 0.8;">
+                        Novais
+                    </text>
+
+                    <rect x="180" y="115" width="168" height="1" fill="url(#logoGrad)" opacity="0.3" />
+                    <rect x="180" y="115" width="40" height="2" fill="var(--primary)">
+                        <animate attributeName="x" values="180;308;180" dur="3s" repeatCount="indefinite" />
+                    </rect>
+                </svg>
+            </div>
+        </header>
+
+        <section class="hero">
+            <h1>Meu laboratório criativo.</h1>
+            <p>Não sou desenvolvedor profissional. Este é apenas o meu repositório pessoal onde guardo as ideias e projetos que crio por diversão.</p>
+        </section>
+
+        <div class="section-title">Meus Projetos</div>
+
+        <main class="app-grid">
+            <div class="app-card">
+                <div class="app-icon"><i class="fas fa-dice-d20"></i></div>
+                <h3>RPG - Lendas</h3>
+                <p>Painel interativo para mesas de RPG. Gestão completa de inventário, atributos, magias e rolagem de dados virtuais.</p>
+                <a href="rpg/index.html" class="btn-access">Acessar</a>
+            </div>
+
+            <div class="app-card">
+                <div class="app-icon"><i class="fas fa-guitar"></i></div>
+                <h3>Fagulha</h3>
+                <p>O repertório oficial e hub digital da banda Fagulha. Setlists estruturados para facilitar a organização dos shows.</p>
+                <a href="fagulha/index.html" class="btn-access">Acessar</a>
+            </div>
+
+            <div class="app-card">
+                <div class="app-icon"><i class="fas fa-shopping-basket"></i></div>
+                <h3>Mercado Pro</h3>
+                <p>Gestão inteligente de compras de mercado, com monitoramento de orçamento e saldo em tempo real.</p>
+                <a href="mercado/index.html" class="btn-access">Acessar</a>
+            </div>
+
+            <div class="app-card" style="opacity: 0.4;">
+                <div class="app-icon"><i class="fas fa-code-branch"></i></div>
+                <h3>Em Breve...</h3>
+                <p>Sempre há uma nova ideia sendo desenhada e codificada no fundo da mente.</p>
+                <a href="#" class="btn-access" style="background:transparent; border: 1px solid #334155; color: #334155; pointer-events: none;">Offline</a>
+            </div>
+        </main>
+
+        <footer>
+            <div class="social-links">
+                <a href="https://www.instagram.com/alannovais96/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a>
+                <a href="https://www.tiktok.com/@Vault.Zero0" target="_blank" title="TikTok"><i class="fab fa-tiktok"></i></a>
+                <a href="mailto:contato@alannovais.com.br" title="E-mail"><i class="fas fa-envelope"></i></a>
+            </div>
+            
+            <p class="footer-note">
+                Gostou de algum projeto ou achou algo útil? <br>
+                Fique à vontade para me mandar uma mensagem lá no <a href="https://www.instagram.com/alannovais96/" target="_blank">Instagram</a>.
+            </p>
+
+            <p style="margin-top: 30px; font-size: 0.6rem; color: #1e293b; letter-spacing: 2px;">&copy; 2026 ALAN NOVAIS</p>
+        </footer>
+    </div>
+
+</body>
+</html>

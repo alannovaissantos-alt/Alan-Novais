@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+
+<html lang="pt-br">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>Mercado Pro | Alan Novais</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+
+:root { --primary: #2ecc71; --secondary: #3498db; --bg: #f4f7f6; --danger: #e74c3c; --whatsapp: #25d366; --text: #2c3e50; }
+
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; padding-bottom: 120px; overflow-x: hidden; }
+
+.screen { display: none; text-align: center; }
+
+.active { display: block; animation: fadeIn 0.3s ease; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+
+
+header { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 20px; }
+
+.brand { font-size: 0.75rem; font-weight: bold; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
+
+
+
+.btn-large { width: 100%; padding: 18px; border-radius: 16px; border: none; font-weight: 700; font-size: 1.1rem; margin-bottom: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: 0.2s; }
+
+.btn-new { background: var(--secondary); color: white; }
+
+.btn-finish { background: var(--primary); color: white; }
+
+.btn-link-ready { background: #fef2f2; color: var(--danger); width: 100%; margin-top: 15px; padding: 12px; border-radius: 12px; font-size: 0.95rem; border: 1px solid #fee2e2; }
+
+
+
+.item-card { background: white; margin: 12px 0; padding: 16px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: left; }
+
+.item-name { font-weight: 700; font-size: 1.1rem; }
+
+.item-qty-tag { font-size: 0.8rem; background: #e1f5fe; color: #0288d1; padding: 3px 10px; border-radius: 12px; font-weight: 600; margin-top: 4px; display: inline-block; }
+
+.pago { color: #bdc3c7; text-decoration: line-through; }
+
+
+
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 100; }
+
+.modal { display: none; position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 25px; border-radius: 24px; width: 88%; z-index: 110; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+
+input, textarea { width: 100%; padding: 16px; margin: 10px 0; border: 2px solid #edf2f7; border-radius: 12px; font-size: 16px; box-sizing: border-box; outline: none; }
+
+input:focus { border-color: var(--secondary); background: #f0f9ff; }
+
+</style>
+
+</head>
+
+<body>
+
+
+
+<div id="screen-home" class="screen active">
+
+<div style="margin: 50px 0 30px;"><i class="fas fa-shopping-basket" style="font-size: 5rem; color: var(--primary);"></i></div>
+
+<h1 style="font-size: 1.8rem; font-weight: 800;">Mercado Pro</h1>
+
+<p style="color:#7f8c8d; margin-bottom: 40px;">BY ALAN NOVAIS</p>
+
+<button class="btn-large btn-new" onclick="irParaTela('tela-prep')"><i class="fas fa-plus-circle"></i> Começar Lista Nova</button>
+
+<button class="btn-large" style="background:white; color:var(--secondary); border:2px solid var(--secondary)" onclick="mostrarModal('colar-texto')"><i class="fas fa-paste"></i> Importar Lista</button>
+
+</div>
+
+
+
+<div id="tela-prep" class="screen">
+
+<header><div class="brand">LISTA DE MERCADO BY ALAN NOVAIS</div></header>
+
+<button class="btn-large btn-new" onclick="abrirModalAdd()"><i class="fas fa-plus"></i> Novo Item</button>
+
+<div id="lista-prep"></div>
+
+<div id="acoes-lista" style="display: none; margin-top: 20px;">
+
+<button class="btn-finish btn-large" onclick="irParaMercado()">Ir para o Mercado <i class="fas fa-shopping-cart"></i></button>
+
+<button class="btn-large" style="background: white; color:#7f8c8d; border: 1px solid #ddd;" onclick="exportarTexto()"><i class="fas fa-share-alt"></i> Exportar Lista (Texto)</button>
+
+</div>
+
+</div>
+
+
+
+<div id="tela-mercado" class="screen">
+
+<div style="background: var(--primary); color: white; padding: 15px; font-weight: 800; border-radius: 0 0 15px 15px; margin: -20px -20px 20px; font-size: 1.2rem;">
+
+TOTAL: R$ <span id="total-geral">0,00</span>
+
+</div>
+
+<div id="lista-pendente"></div>
+
+<div id="lista-pago"></div>
+
+<div style="position: fixed; bottom: 20px; left: 20px; width: calc(100% - 40px); display: flex; gap: 12px;">
+
+<button class="btn-large" style="background:white; color:#7f8c8d; border:1px solid #ddd; width:45%" onclick="irParaTela('tela-prep')">Editar</button>
+
+<button class="btn-finish btn-large" onclick="mostrarModal('finish')">Finalizar</button>
+
+</div>
+
+</div>
+
+
+
+<div class="overlay" id="overlay-item" onclick="fecharModal()"></div>
+
+<div class="modal" id="modal-item">
+
+<h3 id="modal-titulo" style="margin-top:0">✍️ Detalhes</h3>
+
+<input type="text" id="in-nome" placeholder="Nome do item">
+
+<input type="text" id="in-qty" placeholder="Quantidade" inputmode="numeric">
+
+<input type="text" id="in-preco" placeholder="Valor Unitário" inputmode="decimal">
+
+<button class="btn-new btn-large" onclick="processarSalvar()">Confirmar</button>
+
+<button class="btn-link-ready" onclick="finalizarCadastro()">LISTA PRONTA</button>
+
+</div>
+
+
+
+<div class="overlay" id="overlay-colar-texto" onclick="fecharModal()"></div>
+
+<div class="modal" id="modal-colar-texto">
+
+<h3 style="margin-top:0">📋 Colar Lista</h3>
+
+<textarea id="txt-importar" rows="8" placeholder="Cole aqui seu recibo ou lista de texto..."></textarea>
+
+<button class="btn-new btn-large" onclick="processarImportacao()">Processar Agora</button>
+
+</div>
+
+
+
+<div class="overlay" id="overlay-finish" onclick="fecharModal()"></div>
+
+<div class="modal" id="modal-finish">
+
+<h3 style="text-align:center; margin-top:0">Encerrar Compra</h3>
+
+<button class="btn-large" style="background:var(--whatsapp); color:white" onclick="exportarRecibo()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
+
+<button class="btn-link-ready" style="background:transparent; border:none; color:#95a5a6" onclick="fecharModal()">Voltar</button>
+
+</div>
+
+
+
+<script>
+
+let database = [];
+
+let indexEditando = null;
+
+let modoMercado = false;
+
+let primeiraTeclaQtd = true;
+
+let primeiraTeclaPreco = true;
+
+const campos = { nome: document.getElementById('in-nome'), qty: document.getElementById('in-qty'), preco: document.getElementById('in-preco') };
+
+
+
+campos.qty.addEventListener('keydown', (e) => {
+
+if (primeiraTeclaQtd && e.key.length === 1 && /\d/.test(e.key)) {
+
+campos.qty.value = ""; primeiraTeclaQtd = false;
+
+}
+
+});
+
+
+
+campos.preco.addEventListener('keydown', (e) => {
+
+if (primeiraTeclaPreco && e.key.length === 1 && /[\d,]/.test(e.key)) {
+
+campos.preco.value = ""; primeiraTeclaPreco = false;
+
+}
+
+});
+
+
+
+Object.keys(campos).forEach((key) => {
+
+campos[key].addEventListener('keydown', (e) => {
+
+if (e.key === "Enter") {
+
+e.preventDefault();
+
+if (key === 'nome') campos.nome.value === "" ? fecharModal() : campos.qty.focus();
+
+else if (key === 'qty') modoMercado ? campos.preco.focus() : processarSalvar();
+
+else processarSalvar();
+
+}
+
+if (e.key === "Backspace" && campos[key].value === "") {
+
+if (key === 'preco') { e.preventDefault(); campos.qty.focus(); }
+
+else if (key === 'qty' && !modoMercado) { e.preventDefault(); campos.nome.focus(); }
+
+else if (key === 'qty' && modoMercado) fecharModal();
+
+}
+
+});
+
+});
+
+
+
+function irParaTela(id) {
+
+document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+document.getElementById(id).classList.add('active');
+
+}
+
+
+
+function abrirModalAdd(idx = null) {
+
+indexEditando = idx; modoMercado = false; primeiraTeclaQtd = true;
+
+campos.nome.style.display = 'block'; campos.preco.style.display = 'none';
+
+document.querySelector('.btn-link-ready').style.display = idx === null ? 'flex' : 'none';
+
+campos.nome.value = idx !== null ? database[idx].nome : "";
+
+campos.qty.value = idx !== null ? database[idx].qtd : "1";
+
+mostrarModal('item');
+
+setTimeout(() => campos.nome.focus(), 300);
+
+}
+
+
+
+function abrirModalMercado(idx) {
+
+indexEditando = idx; modoMercado = true; primeiraTeclaQtd = true; primeiraTeclaPreco = true;
+
+campos.nome.style.display = 'block'; campos.preco.style.display = 'block';
+
+document.querySelector('.btn-link-ready').style.display = 'none';
+
+campos.nome.value = database[idx].nome;
+
+campos.qty.value = database[idx].qtd;
+
+campos.preco.value = database[idx].preco > 0 ? database[idx].preco.toFixed(2).replace('.', ',') : "";
+
+mostrarModal('item');
+
+setTimeout(() => campos.preco.focus(), 300);
+
+}
+
+
+
+function processarImportacao() {
+
+const texto = document.getElementById('txt-importar').value;
+
+const linhas = texto.split('\n');
+
+const ignorar = ["RECIBO", "MINHA LISTA", "TOTAL", "ALAN NOVAIS", "----", "DATA"];
+
+linhas.forEach(linha => {
+
+let l = linha.trim();
+
+if (l === "" || ignorar.some(k => l.toUpperCase().includes(k))) return;
+
+l = l.replace(/^[^a-zA-Z0-9À-ÿ]+/, '').trim();
+
+let qtdMatch = l.match(/\(?(\d+)\)?/);
+
+let qtd = qtdMatch ? qtdMatch[1] : "1";
+
+let nome = l.replace(/\(?\d+\)?/g, '').replace(/R\$\s?[\d.,]+/g, '').replace(/[-]/g, '').trim();
+
+if (nome.length > 1) database.push({ nome: nome, qtd: qtd, preco: 0 });
+
+});
+
+fecharModal(); renderizarListas(); irParaTela('tela-prep');
+
+}
+
+
+
+function exportarTexto() {
+
+let txt = `🛒 MINHA LISTA - ALAN NOVAIS\n`;
+
+database.forEach(i => txt += `${i.nome} ${i.qtd}\n`); // Corrigido de .qty para .qtd
+
+window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+
+}
+
+
+
+function exportarRecibo() {
+
+const data = new Date().toLocaleDateString('pt-BR');
+
+let txt = `*🛒 RECIBO - ALAN NOVAIS*\n*DATA:* ${data}\n--------------------------------\n`;
+
+let total = 0;
+
+database.forEach(i => {
+
+const sub = (parseFloat(i.qtd) || 0) * i.preco;
+
+total += sub;
+
+txt += `✅ ${i.nome} (${i.qtd}) - R$ ${sub.toFixed(2)}\n`;
+
+});
+
+txt += `--------------------------------\n*TOTAL: R$ ${total.toFixed(2)}*`;
+
+window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+
+location.reload();
+
+}
+
+
+
+function renderizarListas() {
+
+const lp = document.getElementById('lista-prep'), lpend = document.getElementById('lista-pendente'), lpago = document.getElementById('lista-pago');
+
+lp.innerHTML = lpend.innerHTML = lpago.innerHTML = "";
+
+let total = 0;
+
+database.forEach((item, i) => {
+
+const nQty = parseFloat(item.qtd) || 0;
+
+const sub = nQty * item.preco;
+
+total += sub;
+
+const card = `<div class="item-card" onclick="${modoMercado ? `abrirModalMercado(${i})` : `abrirModalAdd(${i})`}">
+
+<div><span class="item-name ${item.preco > 0 ? 'pago' : ''}">${item.nome}</span><br>
+
+<span class="item-qty-tag">${item.qtd} ${nQty == 1 ? 'unidade' : 'unidades'}</span></div>
+
+<div>${item.preco > 0 ? `<b style="color:var(--primary)">R$ ${sub.toFixed(2)}</b>` : '<small style="color:#f39c12; font-weight:700">Pendente</small>'}</div></div>`;
+
+lp.innerHTML += card;
+
+if (item.preco > 0) lpago.innerHTML += card; else lpend.innerHTML += card;
+
+});
+
+document.getElementById('total-geral').innerText = total.toFixed(2).replace('.', ',');
+
+document.getElementById('acoes-lista').style.display = database.length > 0 ? 'block' : 'none';
+
+}
+
+
+
+function processarSalvar() {
+
+const n = campos.nome.value, q = campos.qty.value || "1", p = parseFloat(campos.preco.value.replace(',', '.')) || 0;
+
+if (indexEditando === null) { if (n) database.push({ nome: n, qtd: q, preco: 0 }); abrirModalAdd(); }
+
+else { database[indexEditando].nome = n; database[indexEditando].qtd = q; database[indexEditando].preco = p; fecharModal(); }
+
+renderizarListas();
+
+}
+
+
+
+function mostrarModal(m) { document.getElementById('overlay-'+m).style.display = 'block'; document.getElementById('modal-'+m).style.display = 'block'; }
+
+function fecharModal() { document.querySelectorAll('.overlay, .modal').forEach(el => el.style.display = 'none'); document.activeElement.blur(); }
+
+function irParaMercado() { modoMercado = true; irParaTela('tela-mercado'); renderizarListas(); }
+
+function finalizarCadastro() { if (campos.nome.value) processarSalvar(); fecharModal(); }
+
+</script>
+
+</body>
+
+</html>
