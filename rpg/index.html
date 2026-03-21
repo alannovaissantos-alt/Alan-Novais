@@ -20,7 +20,7 @@
         body {
             background-color: var(--bg-dark); background-image: radial-gradient(circle at top, #2a1e14 0%, #0a0705 100%);
             color: var(--ink); font-family: 'Merriweather', serif; margin: 0; padding: 15px; 
-            display: flex; justify-content: center; align-items: flex-start; min-height: 100vh;
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
         }
 
         .app-container {
@@ -76,8 +76,9 @@
         .modal-card { background: var(--parchment); width: 100%; max-width: 360px; border-radius: 20px; padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); position: relative; color: var(--ink); box-sizing: border-box; }
         .modal-close { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.05); border: none; font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--ink); display: flex; align-items: center; justify-content: center; z-index: 10; }
 
-        /* Tela de Resumo / Ficha Técnica */
-        #summary-screen { display: none; width: 100%; animation: fadeIn 0.3s ease; }
+        /* Animações e Telas */
+        .screen { display: none; width: 100%; animation: fadeIn 0.3s ease; }
+        .screen.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
         .summary-header { text-align: center; margin-bottom: 20px; }
@@ -109,7 +110,20 @@
 
 <div class="app-container" id="app">
     
-    <div id="creation-screen">
+    <div id="home-screen" class="screen active" style="text-align: center; padding: 30px 10px;">
+        <div style="font-size: 60px; margin-bottom: 10px;">⚔️</div>
+        <h1 style="border-bottom: none; font-size: 32px; margin-bottom: 5px;">Lendas RPG</h1>
+        <p style="color: var(--ink-light); margin-bottom: 40px; font-style: italic;">Forje seu destino e escolha seu caminho.</p>
+
+        <button class="btn btn-green" style="padding: 20px; font-size: 16px; margin-bottom: 15px;" onclick="goToCreation()">
+            🎲 JOGAR COM MESTRE
+        </button>
+        <button class="btn btn-primary" style="padding: 20px; font-size: 16px;" onclick="window.location.href='semmestre.html'">
+            🤖 JOGAR SEM MESTRE
+        </button>
+    </div>
+
+    <div id="creation-screen" class="screen">
         <h1>Crie sua Lenda</h1>
         
         <label>Nome do Personagem:</label>
@@ -153,7 +167,7 @@
         <button class="btn btn-primary" style="margin-top: 25px;" onclick="generateSummary()">📜 GERAR FICHA TÉCNICA</button>
     </div>
 
-    <div id="summary-screen">
+    <div id="summary-screen" class="screen">
         <h1 style="margin-bottom: 20px;">Sua Ficha Técnica</h1>
         <div id="card-content"></div>
         
@@ -161,11 +175,10 @@
         <div class="fab-wrapper">
             <div class="fab-options" id="fab-options">
                 <button class="btn btn-green" onclick="sendWhatsApp()">📲 ENVIAR NO WHATSAPP</button>
-                <button class="btn btn-blue" onclick="startGame('com_mestre')">🎲 JOGAR COM MESTRE</button>
-                <button class="btn btn-red" onclick="startGame('sem_mestre')">🤖 JOGAR SEM MESTRE (v2.0)</button>
+                <button class="btn btn-blue" onclick="startGame()">🎲 INICIAR JOGO</button>
                 <button class="btn btn-yellow" onclick="goBack()">⬅️ VOLTAR E EDITAR</button>
             </div>
-            <button class="btn btn-primary" id="fab-main-btn" onclick="toggleFabMenu()">📜 ESCOLHER DESTINO</button>
+            <button class="btn btn-primary" id="fab-main-btn" onclick="toggleFabMenu()">📜 OPÇÕES DA LENDA</button>
         </div>
     </div>
 
@@ -219,6 +232,11 @@
     let freePoints = 5;
     let allocated = { FOR: 0, INT: 0, AGI: 0, VIT: 0, CAR: 0, SOR: 0 };
     let characterData = {};
+
+    function goToCreation() {
+        document.getElementById('home-screen').classList.remove('active');
+        document.getElementById('creation-screen').classList.add('active');
+    }
 
     function updatePersonality() {
         let p = document.getElementById('char-personality').value;
@@ -327,7 +345,7 @@
         if (options.classList.contains('open')) {
             options.classList.remove('open');
             overlay.classList.remove('show');
-            btn.innerHTML = '📜 ESCOLHER DESTINO';
+            btn.innerHTML = '📜 OPÇÕES DA LENDA';
         } else {
             options.classList.add('open');
             overlay.classList.add('show');
@@ -337,8 +355,8 @@
 
     function goBack() {
         toggleFabMenu(); 
-        document.getElementById('summary-screen').style.display = 'none';
-        document.getElementById('creation-screen').style.display = 'block';
+        document.getElementById('summary-screen').classList.remove('active');
+        document.getElementById('creation-screen').classList.add('active');
     }
 
     function generateSummary() {
@@ -414,8 +432,8 @@
         `;
 
         document.getElementById('card-content').innerHTML = cardHTML;
-        document.getElementById('creation-screen').style.display = 'none';
-        document.getElementById('summary-screen').style.display = 'block';
+        document.getElementById('creation-screen').classList.remove('active');
+        document.getElementById('summary-screen').classList.add('active');
     }
 
     function sendWhatsApp() {
@@ -446,14 +464,9 @@
         window.location.href = zapLink;
     }
 
-    function startGame(mode) {
+    function startGame() {
         localStorage.setItem('rpg_character', JSON.stringify(characterData));
-        if(mode === 'com_mestre') {
-            window.location.href = 'commestre.html';
-        } else {
-            alert('🤖 Aguarde a v2.0! O modo "Jogar Sem Mestre" está sendo forjado nas profundezas e chegará em breve.');
-            toggleFabMenu(); 
-        }
+        window.location.href = 'commestre.html';
     }
 
     window.onload = function() { initStats(); resetAndUpdate(); };
