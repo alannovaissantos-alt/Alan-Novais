@@ -392,15 +392,16 @@
 </div>
 
 <script>
+    // AQUI ESTÃO AS REGRAS REFATORADAS: separando mpCost e hpCost
     const CLASSES = {
-        "Guerreiro": { xpBase: 100, skill: "Fúria Inabalável", cost: 10, costType: 'hp', desc: "Soma +5 no dano FINAL. (Custa 10 de HP)." },
-        "Arqueiro": { xpBase: 100, skill: "Chuva de Flechas", cost: 15, costType: 'mp', desc: "Dano em área. Soma +3 no dano de TODOS inimigos." },
-        "Mago": { xpBase: 110, skill: "Colapso Arcano", cost: 20, costType: 'mp', desc: "Dano mágico absurdo! Soma +10 no dano FINAL." },
-        "Necromante": { xpBase: 105, skill: "Corrente de Almas", cost: 15, costType: 'mp', desc: "Revive aliado caído com metade do HP." },
-        "Druida": { xpBase: 100, skill: "Metamorfose", cost: 15, costType: 'mp', desc: "Fera: Soma +2 nos dados de ATK e DEF por 2 rodadas." },
-        "Soldado": { xpBase: 95, skill: "Formação Falange", cost: 10, costType: 'mp', desc: "Aumenta defesa dos aliados em +2 na próxima rodada." },
-        "Assassino": { xpBase: 105, skill: "Golpe das Sombras", cost: 15, costType: 'mp', desc: "Dano Triplo se bater furtivo." },
-        "Bardo": { xpBase: 90, skill: "Canção Fagulha", cost: 10, costType: 'mp', desc: "Dá bônus na equipe de +2 nos dados de ataque." }
+        "Guerreiro": { xpBase: 100, skill: "Fúria Inabalável", mpCost: 10, hpCost: 5, desc: "Soma +5 no dano FINAL." },
+        "Arqueiro": { xpBase: 100, skill: "Chuva de Flechas", mpCost: 15, hpCost: 0, desc: "Dano em área. Soma +3 no dano de TODOS inimigos." },
+        "Mago": { xpBase: 110, skill: "Colapso Arcano", mpCost: 20, hpCost: 0, desc: "Dano mágico absurdo! Soma +10 no dano FINAL." },
+        "Necromante": { xpBase: 105, skill: "Corrente de Almas", mpCost: 15, hpCost: 0, desc: "Revive aliado caído com metade do HP." },
+        "Druida": { xpBase: 100, skill: "Metamorfose", mpCost: 15, hpCost: 0, desc: "Fera: Soma +2 nos dados de ATK e DEF por 2 rodadas." },
+        "Soldado": { xpBase: 95, skill: "Formação Falange", mpCost: 10, hpCost: 0, desc: "Aumenta defesa dos aliados em +2 na próxima rodada." },
+        "Assassino": { xpBase: 105, skill: "Golpe das Sombras", mpCost: 15, hpCost: 0, desc: "Dano Triplo se bater furtivo." },
+        "Bardo": { xpBase: 90, skill: "Canção Fagulha", mpCost: 10, hpCost: 0, desc: "Dá bônus na equipe de +2 nos dados de ataque." }
     };
     const STAT_NAMES = { FOR: "Força", INT: "Inteligência", AGI: "Agilidade", VIT: "Vitalidade", CAR: "Carisma", SOR: "Sorte" };
     
@@ -677,7 +678,10 @@
         }
         else if(type === 'classe') {
             let cData = CLASSES[player.cls]; title = `Lenda: ${player.cls}`;
-            html = `<div class="detail-box"><strong>🔥 Habilidade: ${cData.skill}</strong><br><br>${cData.desc}</div>`;
+            let costTxt = [];
+            if(cData.mpCost > 0) costTxt.push(`${cData.mpCost} MP`);
+            if(cData.hpCost > 0) costTxt.push(`${cData.hpCost} HP`);
+            html = `<div class="detail-box"><strong>🔥 Habilidade: ${cData.skill}</strong><br>Custo: ${costTxt.join(' e ')}<br><br>${cData.desc}</div>`;
         }
         else if(type === 'personalidade') {
             title = `Personalidade`; html = `<div style="font-size: 40px; margin-bottom: 10px; text-align:center;">🎭</div><h3 style="margin-bottom:5px;">${player.personality}</h3><p style="font-style:italic; font-size:15px; text-align:center;">"${player.personalityDesc}"</p>`;
@@ -763,13 +767,24 @@
     function actionSkill() {
         if(currentOverloadState > 0) return customAlert("⚠️ EXAUSTÃO", "Você está acima do seu limite de carga!<br><br><strong>Você não tem energia para usar habilidades.</strong>");
 
-        let cData = CLASSES[player.cls]; let cost = cData.cost;
-        if(cData.costType === 'hp') {
-            if(player.hp <= cost) return customAlert("HP Insuficiente ❤️", `Você precisa de mais de ${cost} HP para sacrificar!`);
-            player.hp -= cost;
-        } else {
-            if(player.mp < cost) return customAlert("Mana Insuficiente 💎", `A habilidade custa ${cost} MP. Você tem ${player.mp}.`);
-            player.mp -= cost;
+        let cData = CLASSES[player.cls]; 
+        let mpCost = cData.mpCost || 0;
+        let hpCost = cData.hpCost || 0;
+
+        // VERIFICAR CUSTOS
+        if(mpCost > 0 && player.mp < mpCost) {
+            return customAlert("Mana Insuficiente 💎", `A habilidade custa ${mpCost} MP. Você tem ${player.mp}.`);
+        }
+        if(hpCost > 0 && player.hp <= hpCost) {
+            return customAlert("HP Insuficiente ❤️", `A habilidade consome ${hpCost} HP. Você precisa ter mais vida para não morrer ao usar!`);
+        }
+
+        // COBRAR CUSTOS
+        if(mpCost > 0) player.mp -= mpCost;
+        if(hpCost > 0) {
+            player.hp -= hpCost;
+            document.body.classList.add('taking-damage'); // Pisca a tela de vermelho pro guerreiro
+            setTimeout(() => document.body.classList.remove('taking-damage'), 300);
         }
         updateGameUI();
 
@@ -787,7 +802,13 @@
             case 'Soldado': sHtml = `<span style="color:var(--gold); font-weight:bold;">FALANGE!<br>Avise seus aliados: Ganharam +2 DEF nesta rodada.</span>`; break;
             case 'Bardo': sHtml = `<span style="color:var(--gem-blue); font-weight:bold;">CANÇÃO!<br>Avise a equipe: Todos ganharam +2 ATK nesta rodada.</span>`; break;
         }
-        document.getElementById('combat-result-text').innerHTML = `<strong style="color:var(--gem-red);">${cData.skill}</strong><hr style="border: 1px dashed rgba(0,0,0,0.1); margin:10px 0;">${sHtml}`;
+        
+        // MOSTRAR CUSTO NO POPUP
+        let costText = [];
+        if(mpCost > 0) costText.push(`${mpCost} MP`);
+        if(hpCost > 0) costText.push(`${hpCost} HP`);
+
+        document.getElementById('combat-result-text').innerHTML = `<strong style="color:var(--gem-red);">${cData.skill}</strong><br><span style="font-size: 12px; color: var(--ink-light);">Custo: ${costText.join(' e ')}</span><hr style="border: 1px dashed rgba(0,0,0,0.1); margin:10px 0;">${sHtml}`;
         document.getElementById('combat-extra-actions').innerHTML = ''; openModal('modal-combat');
     }
 
@@ -1028,8 +1049,15 @@
         - Seu limite de peso aumenta com a Força. Passar o limite bloqueia ataques. Passar de 10% além disso começa a tirar vida de exaustão!<br>
         - <strong>Acessórios (Max 2):</strong> Podem dar status bônus permanentes, ou curar HP/MP automaticamente a cada 10s.<br><br>`;
         if(player.cls === "Mago") h += `<div style="background:rgba(25,118,210,0.1); padding:10px; border-left:4px solid var(--gem-blue); margin-bottom:15px;"><strong style="color:var(--gem-blue);">🧙 REGRA DO MAGO:</strong><br>Ataques normais gastam MP = (Poder da Arma x 3).</div>`;
+        
         let cData = CLASSES[player.cls];
-        if(cData) h += `<strong>🔥 HABILIDADE (${cData.skill})</strong><br>${cData.desc}<br><br>`;
+        if(cData) {
+            let costText = [];
+            if(cData.mpCost > 0) costText.push(`${cData.mpCost} MP`);
+            if(cData.hpCost > 0) costText.push(`${cData.hpCost} HP`);
+            h += `<strong>🔥 HABILIDADE (${cData.skill})</strong><br>Custo: ${costText.join(' e ')}<br>${cData.desc}<br><br>`;
+        }
+
         h += `<strong>💡 DICAS DE UI</strong><br>- Aperte <kbd>Enter</kbd> no teclado para confirmar.<br>- Textos sublinhados mostram cálculos ocultos.`;
         
         document.getElementById('help-content').innerHTML = h; openModal('modal-help');
