@@ -1,1041 +1,1183 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RPG - Painel do Jogador</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Merriweather:wght@400;700;900&display=swap');
-
-        :root {
-            --bg-dark: #120d09; --parchment: #fdfaf0; --parchment-dark: #f0e6d2;
-            --ink: #2c1a12; --ink-light: #5d4037; --gem-red: #d32f2f;
-            --gem-blue: #1976d2; --gem-green: #388e3c; --gold: #d4af37;
-            --glass-bg: rgba(253, 250, 240, 0.95); --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            --radius: 16px;
-        }
-
-        body {
-            background-color: var(--bg-dark); background-image: radial-gradient(circle at top, #2a1e14 0%, #0a0705 100%);
-            color: var(--ink); font-family: 'Merriweather', serif; margin: 0; padding: 15px; 
-            display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; transition: background-color 0.3s, filter 0.5s;
-        }
-        
-        body.taking-damage { background-color: #5c0000; }
-        body.is-dead .app-container { filter: grayscale(100%) brightness(0.25); pointer-events: none; }
-        
-        @keyframes pulse-severe { 0% { transform: scale(1); box-shadow: 0 0 5px rgba(255,0,0,0.5); } 50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,0,0,0.9); } 100% { transform: scale(1); box-shadow: 0 0 5px rgba(255,0,0,0.5); } }
-        @keyframes hp-drain { 0% { box-shadow: inset 0 0 0px rgba(255,0,0,0); } 50% { box-shadow: inset 0 0 25px rgba(255,0,0,0.8); border-color: red;} 100% { box-shadow: inset 0 0 0px rgba(255,0,0,0); } }
-        
-        .hp-drain-pulse { animation: hp-drain 1s infinite; }
-        .hp-drain-pulse-slow { animation: hp-drain 2s infinite; }
-        .light-overload { color: #ff9800 !important; font-weight: bold; }
-        .severe-overload { animation: pulse-severe 1s infinite; display: inline-block; color: var(--gem-red) !important;}
-
-        .app-container {
-            background: var(--glass-bg); backdrop-filter: blur(10px); width: 100%; max-width: 450px;
-            padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid rgba(212, 175, 55, 0.4);
-            box-sizing: border-box; position: relative; transition: filter 0.5s;
-        }
-
-        .screen { display: none; animation: fadeIn 0.3s ease; } .screen.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-        h1, h2, h3 { font-family: 'Cinzel', serif; color: var(--ink); margin-top: 0; text-align: center; }
-
-        input, select {
-            width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 15px; background: rgba(0,0,0,0.04);
-            border: 1px solid rgba(0,0,0,0.1); color: var(--ink); font-family: 'Merriweather', serif;
-            font-size: 15px; font-weight: bold; border-radius: 8px; box-sizing: border-box;
-        }
-        input:focus, select:focus { outline: none; border-color: var(--gold); }
-
-        .btn {
-            width: 100%; padding: 14px; border: none; border-radius: 12px; font-family: 'Cinzel', serif;
-            font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            gap: 8px; transition: transform 0.1s, box-shadow 0.2s; box-sizing: border-box;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn-primary { background: linear-gradient(135deg, var(--ink) 0%, #1a0f0a 100%); color: var(--gold); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .btn-gold { background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%); color: var(--ink); box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3); }
-        .btn-green { background: linear-gradient(135deg, var(--gem-green) 0%, #1b5e20 100%); color: white; box-shadow: 0 4px 15px rgba(56,142,60,0.4); }
-        .btn-red { background: linear-gradient(135deg, var(--gem-red) 0%, #b71c1c 100%); color: white; box-shadow: 0 4px 15px rgba(211,47,47,0.4); }
-        .btn-blue { background: linear-gradient(135deg, var(--gem-blue) 0%, #0d47a1 100%); color: white; box-shadow: 0 4px 15px rgba(25,118,210,0.4); }
-        .btn-outline { background: transparent; border: 2px solid var(--ink); color: var(--ink); }
-        .btn-small { padding: 8px 12px; font-size: 12px; border-radius: 8px; width: auto;}
-
-        .bar-container { background: rgba(0,0,0,0.1); border-radius: 10px; height: 24px; width: 100%; position: relative; overflow: hidden; margin-top: 5px; border: 1px solid rgba(0,0,0,0.05);}
-        .bar-fill { height: 100%; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);}
-        .bar-hp { background: linear-gradient(90deg, #ef5350, #c62828); }
-        .bar-mp { background: linear-gradient(90deg, #42a5f5, #1565c0); }
-        .bar-exp { background: linear-gradient(90deg, #ffca28, #f57f17); height: 14px; border-radius: 7px;}
-
-        .game-header { text-align: center; margin-bottom: 20px; position: relative;}
-        .game-header h2 { margin: 0; font-size: 32px; color: var(--ink); text-transform: uppercase;}
-        .game-header p { margin: 5px 0 0 0; font-weight: bold; color: var(--ink-light); }
-        .stat-clickable { cursor: pointer; text-decoration: underline dotted var(--gold); text-underline-offset: 4px; transition: color 0.2s; display: inline-block;}
-        .stat-clickable:hover { color: var(--gold); }
-        
-        .level-badge { position: absolute; top: -10px; right: -10px; background: var(--gold); color: var(--ink); padding: 5px 12px; border-radius: 12px; font-weight: bold; font-size: 14px; font-family: 'Cinzel', serif; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
-        .stats-box { display: flex; justify-content: space-around; background: rgba(0,0,0,0.04); padding: 12px 5px; border-radius: 10px; margin-top: 15px; border: 1px solid rgba(0,0,0,0.05); font-weight: bold; font-size: 14px;}
-        
-        .dice-area { background: #fdfaf0; border: 2px dashed var(--gold); border-radius: var(--radius); padding: 20px; text-align: center; margin: 20px 0; box-shadow: inset 0 0 20px rgba(0,0,0,0.02);}
-        .dice-number { font-size: 64px; font-weight: 900; font-family: 'Cinzel', serif; color: var(--ink); margin: 15px 0; text-shadow: 3px 3px 6px rgba(0,0,0,0.15); display: none;}
-        .dice-number.spin { animation: spinDice 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: block; }
-        @keyframes spinDice { 0% { transform: rotate(0deg) scale(0.2); opacity: 0; } 100% { transform: rotate(720deg) scale(1); opacity: 1; } }
-        .dice-controls { display: none; gap: 10px; margin-top: 15px; }
-
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
-        
-        .list-item { background: white; border: 1px solid rgba(0,0,0,0.08); padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);}
-        .list-item.equipped { border-left: 5px solid var(--gold); background: #fffcf2; }
-        .list-item.selected { background: #e3f2fd; border-color: var(--gem-blue); border-width: 2px; }
-        .item-info { display: flex; flex-direction: column; }
-        .item-name { font-weight: bold; font-size: 16px; color: var(--ink);}
-        .item-val { font-size: 12px; color: var(--ink-light); margin-top: 3px;}
-
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; opacity: 0; transition: opacity 0.2s;}
-        .modal-overlay.show { display: flex; opacity: 1; }
-        .modal-card { background: var(--parchment); width: 100%; max-width: 360px; border-radius: 20px; padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); transform: scale(0.95); transition: transform 0.2s; position: relative; max-height: 90vh; overflow-y: auto;}
-        .modal-overlay.show .modal-card { transform: scale(1); }
-        .modal-close { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.05); border: none; font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--ink); display: flex; align-items: center; justify-content: center; z-index: 10;}
-
-        #modal-alert, #modal-confirm { z-index: 1100; }
-        #modal-gameover { z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); }
-        
-        .btn-death-float {
-            background: radial-gradient(circle, #2a0000 0%, #000 100%); color: #ff3333; border: 2px solid #550000;
-            font-size: 45px; font-family: 'Cinzel'; padding: 20px 50px; border-radius: 20px;
-            box-shadow: 0 0 40px rgba(255,0,0,0.5); cursor: pointer; transition: all 0.3s;
-            animation: floatDeath 3s ease-in-out infinite; text-align: center; font-weight: bold; margin: 0 auto;
-        }
-        @keyframes floatDeath { 0% { transform: translateY(0px) scale(1); box-shadow: 0 0 20px rgba(255,0,0,0.3); } 50% { transform: translateY(-15px) scale(1.05); box-shadow: 0 20px 50px rgba(255,0,0,0.8); } 100% { transform: translateY(0px) scale(1); box-shadow: 0 0 20px rgba(255,0,0,0.3); } }
-        
-        .revive-options { display: none; flex-direction: column; gap: 15px; width: 100%; max-width: 320px; margin: 0 auto; animation: fadeIn 0.5s ease; text-align: center;}
-        .btn-death-opt { padding: 15px; font-size: 15px; font-family: 'Cinzel'; border-radius: 12px; cursor: pointer; font-weight: bold; border: none; animation: floatDeath 4s ease-in-out infinite; transition: transform 0.2s;}
-        .btn-death-opt:active { transform: scale(0.95); }
-        .btn-opt-1 { background: linear-gradient(135deg, #1976d2, #0d47a1); color: white; box-shadow: 0 10px 30px rgba(25,118,210,0.6); }
-        .btn-opt-2 { background: linear-gradient(135deg, #d4af37, #b8860b); color: var(--ink); box-shadow: 0 10px 30px rgba(212,175,55,0.6); animation-delay: 0.5s;}
-        .btn-opt-3 { background: linear-gradient(135deg, #d32f2f, #b71c1c); color: white; box-shadow: 0 10px 30px rgba(211,47,47,0.6); animation-delay: 1s;}
-
-        .flex-between { display: flex; justify-content: space-between; align-items: center; }
-        .mt-15 { margin-top: 15px; } .mb-15 { margin-bottom: 15px; } .text-center { text-align: center; }
-        .bottom-bar { display: flex; justify-content: space-between; margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); }
-        .combat-result-box { background: rgba(0,0,0,0.04); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; border: 1px solid rgba(0,0,0,0.08); font-size: 15px; line-height: 1.6;}
-        .detail-box { background: rgba(0,0,0,0.03); border-left: 3px solid var(--gold); padding: 12px; margin: 10px 0; text-align: left; font-size: 14px; border-radius: 4px;}
-        
-        .btn-gem-attr { background: var(--ink); color: var(--gold); border: 2px solid var(--gold); width: 32px; height: 32px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 18px;}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPG - Painel do Jogador</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Merriweather:wght@400;700;900&display=swap');
+:root {
+  --bg-dark:#120d09; --parchment:#fdfaf0; --ink:#2c1a12; --ink-light:#5d4037;
+  --gem-red:#d32f2f; --gem-blue:#1976d2; --gem-green:#388e3c; --gold:#d4af37;
+  --glass-bg:rgba(253,250,240,0.97); --shadow:0 8px 32px rgba(0,0,0,0.3); --radius:16px;
+}
+*{box-sizing:border-box;}
+body{background-color:var(--bg-dark);background-image:radial-gradient(circle at top,#2a1e14 0%,#0a0705 100%);color:var(--ink);font-family:'Merriweather',serif;margin:0;padding:10px;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;overflow-x:hidden;}
+body.low-hp{background-color:#5c0000;transition:0.3s;}
+@keyframes critFlash{0%{background:var(--bg-dark);}25%{background:#7a6200;}50%{background:var(--bg-dark);}75%{background:#7a6200;}100%{background:var(--bg-dark);}}
+body.crit-flash{animation:critFlash 0.7s ease;}
+@keyframes deathPulse{0%,100%{opacity:0.9;}50%{opacity:1;}}
+#death-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(70,0,0,0.97);z-index:9999;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;color:white;animation:deathPulse 2s infinite;}
+#death-overlay.show{display:flex;}
+@keyframes pulse-buff{0%{box-shadow:0 0 5px rgba(156,39,176,0.4);}50%{box-shadow:0 0 15px 4px rgba(156,39,176,0.8);}100%{box-shadow:0 0 5px rgba(156,39,176,0.4);}}
+.buff-aura{animation:pulse-buff 1.5s infinite;border-radius:8px;background:rgba(156,39,176,0.1);padding:2px 6px;display:inline-block;color:#8e24aa!important;}
+.item-glow{box-shadow:inset 3px 0 10px rgba(156,39,176,0.2),0 2px 8px rgba(0,0,0,0.05)!important;border-left:4px solid #ab47bc!important;}
+.app-container{background:var(--glass-bg);width:100%;max-width:450px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid rgba(212,175,55,0.4);display:flex;flex-direction:column;min-height:95vh;position:relative;overflow:hidden;}
+.top-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 20px 5px;flex-shrink:0;}
+.top-gold{background:#fffcf2;border:1px solid var(--gold);padding:5px 12px;border-radius:12px;font-weight:bold;color:var(--ink);box-shadow:0 2px 5px rgba(0,0,0,0.1);cursor:pointer;transition:background 0.2s;}
+.top-gold:hover{background:#fff8e1;}
+.btn-gear{background:none;border:none;font-size:24px;cursor:pointer;transition:transform 0.2s;color:var(--ink);}
+.btn-gear:active{transform:rotate(45deg);}
+.game-header{text-align:center;padding:0 20px 5px;flex-shrink:0;}
+.game-header h2{margin:0;font-size:26px;text-transform:uppercase;font-family:'Cinzel',serif;}
+.game-header p{margin:2px 0 0;font-size:13px;color:var(--ink-light);font-weight:bold;cursor:pointer;}
+.game-header p:hover{color:var(--ink);text-decoration:underline dotted;}
+.status-ribbon{display:none;justify-content:center;gap:12px;padding:6px 20px 2px;font-size:12px;font-weight:bold;color:var(--ink-light);flex-shrink:0;}
+.status-ribbon.visible{display:flex;}
+.ribbon-item{display:flex;align-items:center;gap:4px;cursor:pointer;}
+.ribbon-item:hover{color:var(--ink);}
+.bars-area{flex-shrink:0;padding:0 0 5px;}
+.interactive-bar-wrap{margin:6px 20px;cursor:pointer;transition:transform 0.1s;position:relative;}
+.interactive-bar-wrap:active{transform:scale(0.98);}
+.interactive-bar-wrap::after{content:'➕';position:absolute;right:10px;top:-3px;font-size:10px;opacity:0.5;}
+.bar-labels{display:flex;justify-content:space-between;font-weight:bold;font-size:12px;margin-bottom:3px;pointer-events:none;}
+.bar-container{background:rgba(0,0,0,0.1);border-radius:8px;height:16px;width:100%;overflow:hidden;border:1px solid rgba(0,0,0,0.05);}
+.bar-fill{height:100%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,0.5);}
+.bg-hp{background:linear-gradient(90deg,#ef5350,#c62828);}
+.bg-mp{background:linear-gradient(90deg,#42a5f5,#1565c0);}
+.bg-exp{background:linear-gradient(90deg,#ffca28,#f57f17);}
+.tab-content{display:none;flex:1;padding:10px 20px 80px;overflow-y:auto;animation:fadeIn 0.3s ease;position:relative;}
+.tab-content.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+#wait-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,10,5,0.88);backdrop-filter:blur(5px);z-index:10;display:flex;flex-direction:column;justify-content:center;align-items:center;color:var(--parchment);text-align:center;border-radius:8px;transition:opacity 0.3s;padding:20px;overflow-y:auto;}
+#wait-overlay.hidden{opacity:0;pointer-events:none;}
+.wait-title{font-family:'Cinzel';font-size:20px;color:var(--gold);margin-bottom:15px;animation:pulseOpacity 2s infinite;}
+@keyframes pulseOpacity{0%,100%{opacity:0.6;}50%{opacity:1;}}
+.dice-area{background:#fffcf2;border:2px dashed var(--gold);border-radius:12px;padding:15px;text-align:center;margin-top:12px;position:relative;}
+.dice-number{font-size:48px;font-weight:900;font-family:'Cinzel',serif;color:var(--ink);margin:5px 0;text-shadow:2px 2px 4px rgba(0,0,0,0.15);}
+@keyframes spinDiceAnim{0%{transform:scale(0.5) rotate(-20deg);opacity:0;}60%{transform:scale(1.2) rotate(5deg);}100%{transform:scale(1) rotate(0);opacity:1;}}
+.dice-number.spin{animation:spinDiceAnim 0.5s cubic-bezier(0.175,0.885,0.32,1.275);}
+.dice-number.critico{color:var(--gold)!important;text-shadow:0 0 20px rgba(212,175,55,0.9),2px 2px 4px rgba(0,0,0,0.3)!important;}
+@keyframes critPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.15);}}
+.dice-number.critico{animation:spinDiceAnim 0.5s cubic-bezier(0.175,0.885,0.32,1.275),critPulse 0.8s ease 0.5s 3;}
+.combat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+.btn-end-turn{background:linear-gradient(135deg,#d32f2f,#b71c1c);color:white;width:100%;padding:14px;font-size:15px;font-weight:bold;font-family:'Cinzel';border:none;border-radius:12px;margin-top:15px;box-shadow:0 4px 15px rgba(211,47,47,0.4);cursor:pointer;}
+/* SEM log-entry na aba combate — removido */
+.list-item{background:white;border:1px solid rgba(0,0,0,0.08);padding:12px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.03);transition:background 0.2s;}
+.list-item:active{background:#f0f0f0;}
+.list-item.equipped{border-left:5px solid var(--gold);background:#fffdf5;}
+.item-info{display:flex;flex-direction:column;flex:1;}
+.item-name{font-weight:bold;font-size:14px;color:var(--ink);display:flex;justify-content:space-between;}
+.item-sub{font-size:12px;color:var(--ink-light);margin-top:2px;}
+.btn{padding:12px;border:none;border-radius:10px;font-family:'Cinzel',serif;font-size:14px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:transform 0.1s,opacity 0.2s,filter 0.2s;box-sizing:border-box;width:100%;}
+.btn:active:not(:disabled){transform:scale(0.96);}
+.btn:disabled{filter:grayscale(80%);opacity:0.45;cursor:not-allowed;background:#ccc!important;color:#888!important;}
+.btn-primary{background:linear-gradient(135deg,var(--ink),#1a0f0a);color:var(--gold);}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#b8860b);color:var(--ink);}
+.btn-blue{background:linear-gradient(135deg,#1976d2,#0d47a1);color:white;}
+.btn-green{background:linear-gradient(135deg,#388e3c,#1b5e20);color:white;}
+.btn-red{background:linear-gradient(135deg,#d32f2f,#b71c1c);color:white;}
+.btn-outline{background:transparent;border:2px solid var(--ink);color:var(--ink);}
+input,select,textarea{width:100%;padding:11px;margin:4px 0 12px;background:rgba(0,0,0,0.03);border:1px solid rgba(0,0,0,0.12);color:var(--ink);font-family:'Merriweather',serif;font-size:14px;font-weight:bold;border-radius:8px;}
+textarea{font-weight:normal;resize:vertical;min-height:80px;}
+input[type=range]{-webkit-appearance:none;background:transparent;padding:0;margin:8px 0;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:24px;width:24px;border-radius:50%;background:var(--gold);cursor:pointer;margin-top:-8px;}
+input[type=range]::-webkit-slider-runnable-track{width:100%;height:8px;background:rgba(0,0,0,0.2);border-radius:4px;}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:450px;display:flex;background:var(--ink);padding:10px 0 12px;border-top:2px solid var(--gold);z-index:200;box-shadow:0 -5px 20px rgba(0,0,0,0.4);}
+.nav-item{flex:1;text-align:center;color:rgba(255,255,255,0.55);font-family:'Cinzel',serif;font-weight:bold;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color 0.2s;}
+.nav-item.active{color:var(--gold);}
+.nav-icon{font-size:21px;}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.72);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 0.2s;}
+.modal-overlay.show{display:flex;opacity:1;}
+.modal-card{background:var(--parchment);width:100%;max-width:380px;border-radius:20px;padding:25px;box-shadow:0 20px 50px rgba(0,0,0,0.4);position:relative;max-height:88vh;overflow-y:auto;overflow-x:hidden;}
+.modal-close{position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.08);border:none;font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+h2.modal-title{font-family:'Cinzel';text-align:center;margin:0 35px 12px;color:var(--ink);border-bottom:2px solid rgba(0,0,0,0.06);padding-bottom:10px;font-size:18px;}
+.history-item{font-size:12px;border-bottom:1px solid rgba(0,0,0,0.1);padding:8px 0;display:flex;justify-content:space-between;align-items:center;}
+.btn-revert{background:var(--gem-red);color:white;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;font-weight:bold;flex-shrink:0;margin-left:8px;}
+label{font-size:12px;font-weight:bold;color:var(--ink-light);display:block;margin-bottom:2px;}
+#level-up-banner{background:linear-gradient(135deg,var(--gold),#b8860b);color:var(--ink);padding:12px;border-radius:12px;text-align:center;margin-bottom:12px;}
+.skill-card{background:linear-gradient(135deg,var(--ink),#1a0f0a);color:var(--parchment);border-radius:12px;padding:15px;margin-top:12px;position:relative;overflow:hidden;}
+.skill-card::before{content:'';position:absolute;left:0;top:0;height:100%;width:5px;background:var(--gem-red);}
+.skill-card-title{color:var(--gold);font-family:'Cinzel';font-size:15px;font-weight:bold;margin-bottom:6px;display:block;}
+.skill-card-desc{font-size:12px;line-height:1.6;}
+.skill-card-dano{background:rgba(255,255,255,0.1);color:var(--gold);padding:6px 10px;border-radius:8px;font-size:12px;font-weight:bold;margin-top:10px;display:inline-block;border:1px solid rgba(212,175,55,0.3);}
+.ficha-stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:white;border-radius:10px;margin-bottom:6px;border:1px solid rgba(0,0,0,0.06);}
+.ficha-stat-val{font-size:15px;font-weight:900;font-family:'Cinzel';color:var(--gem-blue);}
+.ficha-stat-desc{font-size:11px;color:var(--ink-light);margin-top:1px;}
+.crit-badge{background:var(--gold);color:var(--ink);font-size:10px;font-weight:bold;padding:2px 6px;border-radius:10px;margin-left:6px;vertical-align:middle;}
+#notes-area{background:rgba(0,0,0,0.02);border:1px dashed rgba(0,0,0,0.15);border-radius:8px;padding:10px;font-size:13px;min-height:80px;color:var(--ink);font-family:'Merriweather',serif;resize:vertical;width:100%;margin-top:5px;}
+/* Dado livre — linha de detalhe abaixo do número */
+#free-dice-detail{font-size:13px;color:var(--ink-light);margin-top:-4px;margin-bottom:6px;min-height:20px;font-weight:bold;}
+</style>
 </head>
 <body>
 
+<!-- MORTE OVERLAY — bloqueia tudo enquanto isDead=true -->
+<div id="death-overlay">
+  <div style="font-size:70px;margin-bottom:10px;">💀</div>
+  <h2 style="font-family:'Cinzel';font-size:26px;color:var(--gold);margin:0 0 10px;">CAIU EM COMBATE</h2>
+  <p style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:25px;line-height:1.8;">Seu HP chegou a 0.<br>Peça ao Mestre para reviver ou use uma poção.</p>
+  <button class="btn btn-gold" style="max-width:260px;" onclick="revivePlayer()">⚕️ REVIVER (Mestre)</button>
+  <button class="btn btn-outline" style="max-width:260px;color:white;border-color:rgba(255,255,255,0.4);margin-top:10px;" onclick="closeDeathOverlay()">📜 Ver Ficha (Inconsciente)</button>
+</div>
+
 <div class="app-container" id="app">
 
-    <div id="screen-game" class="screen active">
-        
-        <div class="game-header">
-            <div class="level-badge" id="game-level">LVL 1</div>
-            <h2 id="game-name">Nome</h2>
-            <p><span class="stat-clickable" onclick="openDetails('classe')" id="game-class">Classe</span> | <span class="stat-clickable" onclick="openDetails('personalidade')">Personalidade</span></p>
-            
-            <div class="stats-box">
-                <span class="stat-clickable" onclick="openDetails('atk')" style="color:var(--gem-red);">ATK: <span id="game-atk">0</span></span>
-                <span style="color:var(--ink-light);">|</span>
-                <span class="stat-clickable" onclick="openDetails('def')" style="color:var(--gem-blue);">DEF: <span id="game-def">0</span></span>
-                <span style="color:var(--ink-light);">|</span>
-                <span class="stat-clickable" onclick="openDetails('carga')" style="color:#e65100;">⚖️ <span id="game-carga">0/0</span>kg</span>
-            </div>
+  <div class="top-bar">
+    <div class="top-gold" onclick="switchTab('mochila')">💰 <span id="ui-gold">0</span>G</div>
+    <button class="btn-gear" onclick="openMestreMenu()">⚙️</button>
+  </div>
 
-            <div style="margin-top: 15px;">
-                <div class="flex-between" style="font-size: 12px; font-weight: bold; margin-bottom: 4px; color: var(--ink-light);">
-                    <span>EXPERIÊNCIA</span> <span id="game-exp-text">0 / 100</span>
-                </div>
-                <div class="bar-container" style="height: 10px; background: rgba(0,0,0,0.05);"><div class="bar-fill bar-exp" id="game-exp-bar" style="width: 0%;"></div></div>
-            </div>
+  <div class="game-header">
+    <h2 id="ui-name">Lenda</h2>
+    <p id="ui-class-line" onclick="showClassInfo()"><span id="ui-class">Classe</span> | Nv. <span id="ui-level">1</span></p>
+  </div>
+
+  <div class="status-ribbon" id="status-ribbon">
+    <div class="ribbon-item" onclick="openBarModal('hp')">❤️ <span id="ribbon-hp">20/20</span></div>
+    <div class="ribbon-item" onclick="openBarModal('mp')">💧 <span id="ribbon-mp">15/15</span></div>
+    <div class="ribbon-item" onclick="showStatInfo('carga')">💪 <span id="ribbon-carga">0/10kg</span></div>
+  </div>
+
+  <div class="bars-area" id="bars-combat">
+    <div class="interactive-bar-wrap" onclick="openBarModal('hp')">
+      <div class="bar-labels">
+        <span id="lbl-hp" onclick="event.stopPropagation();showStatInfo('hp')">❤️ Vida (HP)</span>
+        <span id="txt-hp">20/20</span>
+      </div>
+      <div class="bar-container"><div class="bar-fill bg-hp" id="bar-hp" style="width:100%;"></div></div>
+    </div>
+    <div class="interactive-bar-wrap" onclick="openBarModal('mp')">
+      <div class="bar-labels">
+        <span id="lbl-mp" onclick="event.stopPropagation();showStatInfo('mp')">💧 Mana (MP)</span>
+        <span id="txt-mp">15/15</span>
+      </div>
+      <div class="bar-container"><div class="bar-fill bg-mp" id="bar-mp" style="width:100%;"></div></div>
+    </div>
+  </div>
+
+  <div class="bars-area" id="bars-exp" style="display:none;">
+    <div class="interactive-bar-wrap" onclick="openBarModal('exp')">
+      <div class="bar-labels"><span>✨ Experiência</span><span id="txt-exp">0/100</span></div>
+      <div class="bar-container"><div class="bar-fill bg-exp" id="bar-exp" style="width:0%;"></div></div>
+    </div>
+  </div>
+
+  <div class="bars-area" id="bars-carga" style="display:none;">
+    <div class="interactive-bar-wrap" style="cursor:default;">
+      <div class="bar-labels">
+        <span id="lbl-carga" onclick="showStatInfo('carga')" style="cursor:pointer;">💪 Carga/Peso</span>
+        <span id="txt-carga">0/10kg</span>
+      </div>
+      <div id="warn-carga" style="font-size:11px;text-align:right;color:var(--gem-red);display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB FICHA ===== -->
+  <div id="tab-ficha" class="tab-content">
+    <div style="text-align:center;margin-bottom:12px;">
+      <div style="font-size:36px;">🎭</div>
+      <h3 style="margin:5px 0 2px;" id="ficha-pers">Personalidade</h3>
+      <p style="font-size:12px;font-style:italic;color:var(--ink-light);margin:0;" id="ficha-desc"></p>
+    </div>
+    <div id="level-up-banner" style="display:none;">
+      <div style="font-weight:900;font-size:15px;">✨ PONTOS DISPONÍVEIS!</div>
+      <div>Pontos Livres: <strong id="attr-free-points">0</strong></div>
+    </div>
+    <h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin-bottom:8px;">Atributos Base</h3>
+    <div id="attributes-list"></div>
+    <button id="btn-confirm-attr" class="btn btn-primary" style="display:none;margin-top:8px;" onclick="confirmStatPoint()">✅ Confirmar Distribuição</button>
+    <div class="skill-card" id="skill-card-ficha">
+      <span class="skill-card-title" id="sk-name">Habilidade</span>
+      <div class="skill-card-desc" id="sk-desc">—</div>
+      <div class="skill-card-dano" id="sk-dano">—</div>
+    </div>
+    <h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin:15px 0 8px;">Mecânicas</h3>
+    <div id="mecanicas-list"></div>
+    <h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin:15px 0 5px;">📝 Anotações</h3>
+    <textarea id="notes-area" placeholder="Escreva aqui suas anotações, objetivos, segredos..." oninput="saveNotes()"></textarea>
+  </div>
+
+  <!-- ===== TAB COMBATE ===== -->
+  <div id="tab-combate" class="tab-content active">
+
+    <div id="wait-overlay">
+      <div class="wait-title">⏳ EM ESPERA</div>
+      <p style="font-size:13px;margin-bottom:15px;">O seu turno ainda não começou.</p>
+      <div style="background:rgba(255,255,255,0.1);padding:15px;border-radius:12px;width:100%;margin-bottom:12px;">
+        <button class="btn btn-outline" style="color:white;border-color:var(--gold);" onclick="rollInitiative()">🎲 DADO DE INICIATIVA</button>
+        <div class="dice-number" id="init-dice" style="color:var(--gold);display:none;font-size:40px;">🎲</div>
+        <div id="init-detail" style="font-size:12px;display:none;margin-top:5px;color:white;">
+          Dado: <span id="init-d">0</span> | AGI: <span id="init-agi">0</span><br>
+          <strong style="font-size:16px;">TOTAL: <span id="init-tot">0</span></strong>
         </div>
-
-        <div style="margin-bottom: 20px;">
-            <div class="flex-between" style="margin-bottom: 6px; font-weight: bold; font-size: 15px;">
-                <span class="stat-clickable" onclick="openDetails('hp')">❤️ Vida (HP)</span><span id="game-hp-text">20/20</span>
-            </div>
-            <div class="bar-container" id="hp-bar-wrapper"><div class="bar-fill bar-hp" id="game-hp-bar" style="width: 100%;"></div></div>
-            
-            <div id="emergency-potion-container" style="display:none; margin-top:10px;">
-                <button class="btn btn-blue btn-small" style="width:100%; font-size:14px; padding:10px; animation: pulse-severe 1.5s infinite;" onclick="useEmergencyPotion()">🩸 USAR POÇÃO RÁPIDA (Baixo HP)</button>
-            </div>
-
-            <div class="flex-between" style="margin-bottom: 6px; margin-top: 15px; font-weight: bold; font-size: 15px;">
-                <span class="stat-clickable" onclick="openDetails('mp')">💎 Mana (MP)</span><span id="game-mp-text">15/15</span>
-            </div>
-            <div class="bar-container"><div class="bar-fill bar-mp" id="game-mp-bar" style="width: 100%;"></div></div>
-        </div>
-
-        <div class="dice-area">
-            <button class="btn btn-gold" id="btn-main-dice" onclick="rollMainDice()">🎲 ROLAR DADO D20</button>
-            <div class="dice-number" id="main-dice-result">20</div>
-            
-            <div class="dice-controls" id="dice-actions">
-                <button class="btn btn-blue" style="flex:1;" onclick="actionDef()">🛡️ DEF</button>
-                <button class="btn btn-red" style="flex:1;" onclick="actionAtk()">⚔️ ATK</button>
-            </div>
-            <button class="btn btn-primary mt-15" id="btn-skill" style="display: none;" onclick="actionSkill()">🔥 USAR HABILIDADE</button>
-        </div>
-
-        <div class="action-grid">
-            <button class="btn btn-outline" onclick="showScreen('screen-inventory')">🎒 Inventário</button>
-            <button class="btn btn-outline" style="position:relative;" onclick="showScreen('screen-attributes')">
-                📊 Atributos 
-                <span id="badge-points" style="display:none; position:absolute; top:-5px; right:-5px; background:var(--gem-red); color:white; border-radius:50%; width:22px; height:22px; font-size:12px; align-items:center; justify-content:center;">!</span>
-            </button>
-            <button class="btn btn-outline" style="color:var(--gem-red); border-color:rgba(211,47,47,0.3);" onclick="openModal('modal-damage')">💔 Tomar Dano</button>
-            <button class="btn btn-outline" style="color:var(--gem-blue); border-color:rgba(25,118,210,0.3);" onclick="openPotionSelector()">🧪 Tomar Poção</button>
-            <button class="btn btn-gold" style="grid-column: span 2;" onclick="openModal('modal-exp')">✨ ADICIONAR EXP</button>
-        </div>
-
-        <div class="bottom-bar">
-            <button class="btn btn-small btn-outline" style="border:none; text-decoration:underline;" onclick="generateHelp()">❓ Ajuda</button>
-            <button class="btn btn-small btn-red" onclick="promptHardReset()">🚪 Fechar Jogo</button>
-        </div>
+      </div>
+      <!-- FIX: defesa na tela de espera NÃO gasta ação (isReaction=true) -->
+      <button class="btn btn-blue" style="margin-bottom:12px;" onclick="openDefModal(true)">🛡️ DEFESA RÁPIDA (Reação)</button>
+      <button class="btn btn-red" style="padding:16px;font-size:15px;" onclick="startTurn()">🔥 INICIAR MEU TURNO</button>
     </div>
 
-    <div id="screen-inventory" class="screen">
-        <div class="flex-between mb-15">
-            <h2 style="margin:0;">🎒 Inventário</h2>
-            <button class="modal-close" style="position:relative; top:0; right:0;" onclick="showScreen('screen-game')">×</button>
-        </div>
-        
-        <button class="btn btn-green mb-15" onclick="openAddItemModal()">+ Adicionar Item</button>
-        
-        <div id="inv-overload-hp" style="display:none; padding:10px; background:var(--gem-red); color:white; border-radius:8px; font-weight:bold; margin-bottom: 15px; text-align:center; animation: pulse-severe 1s infinite;">
-            ⚠️ SOBRECARGA: Perdendo HP! (<span id="inv-hp-val">0</span> restante)
-        </div>
-
-        <div style="font-size: 13px; text-align: center; margin-bottom: 15px; font-weight: bold; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 8px;">
-            <div>Ataque (<span id="inv-atk-count" style="color:var(--gem-red);">0</span>/2) | Defesa (<span id="inv-def-count" style="color:var(--gem-blue);">0</span>/2)</div>
-            <div style="margin-top:5px; color:var(--gold);">Acessórios (<span id="inv-acc-count">0</span>/2)</div>
-        </div>
-        <div id="inventory-list" style="overflow-y: auto; max-height: 50vh; padding-right: 5px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+      <strong style="font-size:13px;">Efeitos Ativos:</strong>
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:11px;width:auto;color:#8e24aa;border-color:#8e24aa;" onclick="openAddEffectModal()">+ Efeito</button>
     </div>
+    <div id="active-buffs-container" style="margin-top:8px;display:flex;flex-direction:column;gap:5px;"></div>
 
-    <div id="screen-attributes" class="screen">
-        <div class="flex-between mb-15">
-            <h2 style="margin:0;">📊 Atributos</h2>
-            <button class="modal-close" style="position:relative; top:0; right:0;" onclick="showScreen('screen-game')">×</button>
-        </div>
-
-        <div id="level-up-banner" style="display:none; background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%); color: var(--ink); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px;">
-            <div style="font-weight: 900; font-size: 18px; font-family: 'Cinzel', serif;">VOCÊ TEM PONTOS!</div>
-            <div style="font-size: 14px; margin-top: 5px;">Pontos Livres: <strong id="attr-free-points" style="font-size: 18px;">0</strong></div>
-        </div>
-
-        <div id="attributes-list" style="background: rgba(255,255,255,0.5); padding: 15px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);"></div>
-        
-        <button id="btn-confirm-attr" class="btn btn-primary mt-15" style="display:none;" onclick="confirmStatPoint()">CONFIRMAR DISTRIBUIÇÃO</button>
+    <div class="dice-area">
+      <button class="btn btn-outline" style="position:absolute;top:8px;right:8px;width:auto;padding:5px 10px;font-size:10px;" onclick="rollFreeDice()">🎲 D20</button>
+      <!-- FIX: dado volta pra 🎲 ao trocar de aba/turno. Detalhe AGI embaixo -->
+      <div class="dice-number" id="main-dice">🎲</div>
+      <div id="free-dice-detail"></div>
+      <div style="font-size:12px;font-weight:bold;color:var(--ink-light);margin:0 0 8px;line-height:1.6;" id="combat-log-main">Aguardando ação...</div>
+      <button class="btn btn-red" id="btn-atk" onclick="actionAtk()" disabled>
+        ⚔️ ATACAR <span style="font-size:10px;background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:8px;margin-left:5px;" id="count-atk">0/1</span>
+      </button>
+      <div class="combat-grid">
+        <!-- FIX: defesa durante turno gasta ação (isReaction=false), mas tem controle de uso único -->
+        <button class="btn btn-blue" id="btn-def" onclick="openDefModal(false)" disabled>🛡️ DEFESA</button>
+        <button class="btn btn-primary" id="btn-skill" onclick="actionSkill()" disabled>🔥 HABILIDADE</button>
+      </div>
     </div>
+    <!-- LOG REMOVIDO da aba combate — está só no Histórico -->
+    <button class="btn btn-end-turn" onclick="endTurn()">🛑 ENCERRAR TURNO</button>
+  </div>
 
+  <!-- ===== TAB MOCHILA ===== -->
+  <div id="tab-mochila" class="tab-content">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="btn btn-green" onclick="openAddItemModal('add')">📦 Achar</button>
+      <button class="btn btn-gold" onclick="openAddItemModal('buy')">🛒 Comprar</button>
+      <button class="btn btn-blue" onclick="openPotionSelector()">🧪 Beber</button>
+    </div>
+    <div id="carisma-info" style="font-size:11px;background:rgba(56,142,60,0.1);border-left:3px solid var(--gem-green);padding:5px 10px;border-radius:6px;margin-bottom:10px;display:none;">
+      🗣️ Seu Carisma dá <strong id="carisma-discount">0%</strong> de desconto na loja!
+    </div>
+    <div id="inventory-list"></div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item" id="nav-ficha" onclick="switchTab('ficha')"><span class="nav-icon">📊</span> Ficha</div>
+    <div class="nav-item active" id="nav-combate" onclick="switchTab('combate')"><span class="nav-icon">⚔️</span> Combate</div>
+    <div class="nav-item" id="nav-mochila" onclick="switchTab('mochila')"><span class="nav-icon">🎒</span> Mochila</div>
+  </div>
 </div>
 
-<div class="modal-overlay" id="modal-gameover" style="align-items: center;">
-    <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-        <div id="btn-fim" class="btn-death-float" onclick="showReviveOptions()">FIM?</div>
-        
-        <div id="revive-options" class="revive-options">
-            <h2 style="color: var(--gem-red); font-size: 32px; margin-bottom: 5px; text-shadow: 0 0 10px red;">RESSURREIÇÃO</h2>
-            <p style="color: #e0e0e0; font-size: 13px; text-align: center; margin-bottom: 20px;">
-                Os deuses cobram um preço.<br>Reviver custa <strong>(Nível x 10) de EXP</strong> e tira 50% da vida.<br><span style="color:#aaa;">* Somente um aliado com dom da vida (ex: <strong>Necromante</strong>) pode usar esta opção.</span>
-            </p>
-            
-            <button class="btn-death-opt btn-opt-1" onclick="revivePlayer(true)">🌟 REVIVER (Manter Mochila)</button>
-            <button class="btn-death-opt btn-opt-2" onclick="revivePlayer(false)">⚖️ REVIVER (Esvaziar Mochila)</button>
-            <button class="btn-death-opt btn-opt-3" style="margin-top: 15px;" onclick="localStorage.removeItem('rpg_character'); window.location.href = 'index.html';">💀 APAGAR LENDA (Começar do Zero)</button>
-        </div>
+<!-- ===== MODAIS ===== -->
+<div class="modal-overlay" id="modal-mestre">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-mestre')">×</button>
+    <h2 class="modal-title">Menu do Sistema</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-outline" onclick="openHistory()">📜 Histórico de Ações</button>
+      <button class="btn btn-primary" onclick="exportSave()">💾 Exportar Progresso</button>
+      <button class="btn btn-outline" onclick="importSave()">📥 Importar Ficha</button>
+      <button class="btn btn-outline" style="color:var(--gem-red);border-color:var(--gem-red);" onclick="resetData()">💀 Apagar Personagem</button>
     </div>
+  </div>
 </div>
 
-<div class="modal-overlay" id="modal-details">
-    <div class="modal-card">
-        <button class="modal-close" onclick="closeModal('modal-details')">×</button>
-        <h2 id="detail-title" class="text-center">Detalhes</h2>
-        <div id="detail-content" style="margin-top: 15px; line-height: 1.6;"></div>
-    </div>
+<div class="modal-overlay" id="modal-history">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-history')">×</button>
+    <h2 class="modal-title">Histórico (Auditoria)</h2>
+    <p style="font-size:11px;text-align:center;color:#666;">Últimas 25 ações. Reversão exige senha.</p>
+    <div id="history-list" style="margin-top:10px;"></div>
+  </div>
 </div>
 
-<div class="modal-overlay" id="modal-alert">
-    <div class="modal-card text-center">
-        <h2 id="alert-title" style="color:var(--gem-red);">Aviso</h2>
-        <p id="alert-msg" style="margin: 20px 0; line-height: 1.5; font-size: 15px;"></p>
-        <button class="btn btn-primary" onclick="closeModal('modal-alert')">OK, Entendido</button>
+<div class="modal-overlay" id="modal-password">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-password')">×</button>
+    <h2 class="modal-title">Acesso do Mestre</h2>
+    <p style="font-size:13px;text-align:center;">Digite a senha para autorizar:</p>
+    <input type="password" id="input-pwd" placeholder="Senha">
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-outline" onclick="closeModal('modal-password')">Cancelar</button>
+      <button class="btn btn-primary" onclick="verifyPassword()">Confirmar</button>
     </div>
+  </div>
 </div>
 
-<div class="modal-overlay" id="modal-confirm">
-    <div class="modal-card text-center">
-        <h2 id="confirm-title">Confirmação</h2>
-        <p id="confirm-msg" style="margin: 20px 0; line-height: 1.5; font-size: 15px;"></p>
-        <div class="flex-between">
-            <button class="btn btn-outline" style="width: 48%;" onclick="closeModal('modal-confirm')">Cancelar</button>
-            <button class="btn btn-blue" style="width: 48%;" id="btn-confirm-action">Confirmar</button>
-        </div>
+<div class="modal-overlay" id="modal-item-action">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-item-action')">×</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h2 class="modal-title" id="item-action-title" style="border:none;margin:0;font-size:17px;text-align:left;">Item</h2>
+      <button style="border:none;background:none;font-size:20px;cursor:pointer;padding:4px;" onclick="promptEditItem()">✏️</button>
     </div>
-</div>
-
-<div class="modal-overlay" id="modal-damage">
-    <div class="modal-card text-center">
-        <button class="modal-close" onclick="closeModal('modal-damage')">×</button>
-        <h2>Dano Direto</h2>
-        <p style="font-size: 13px; color: var(--ink-light);">Subtrai o HP ignorando defesas.</p>
-        <input type="number" id="input-direct-dmg" placeholder="Digite o Dano" onkeypress="if(event.key === 'Enter'){this.blur(); applyDirectDamage();}">
-        <button class="btn btn-red" onclick="applyDirectDamage()">SOFRER DANO</button>
+    <div style="background:rgba(0,0,0,0.04);padding:10px;border-radius:8px;margin:0 0 8px;font-size:13px;border-left:3px solid var(--gold);" id="item-action-desc"></div>
+    <div id="item-weight-info" style="font-size:11px;color:var(--ink-light);margin-bottom:10px;background:rgba(0,0,0,0.03);padding:6px 10px;border-radius:6px;display:none;"></div>
+    <p id="item-action-lore" style="font-size:12px;font-style:italic;color:#666;display:none;margin-bottom:12px;"></p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-primary" id="btn-item-equip" onclick="executeItemAction('equip')">Equipar</button>
+      <button class="btn btn-gold" onclick="executeItemAction('sell')">Vender (Pechincha)</button>
+      <button class="btn btn-outline" style="color:var(--gem-red);border-color:rgba(211,47,47,0.3);" onclick="executeItemAction('drop')">Jogar Fora</button>
     </div>
-</div>
-
-<div class="modal-overlay" id="modal-combat">
-    <div class="modal-card text-center">
-        <button class="modal-close" onclick="closeModal('modal-combat')">×</button>
-        <h2 id="combat-title">Ação</h2>
-        <div class="dice-number spin" id="combat-dice">20</div>
-        <div class="combat-result-box" id="combat-result-text"></div>
-        <div id="combat-extra-actions"></div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="modal-enemy-atk">
-    <div class="modal-card text-center">
-        <button class="modal-close" onclick="closeModal('modal-enemy-atk')">×</button>
-        <h2 style="color:var(--gem-red);">Ataque Inimigo</h2>
-        <p id="enemy-atk-desc" style="font-weight: bold; margin-bottom: 15px;"></p>
-        <input type="number" id="input-enemy-dmg" placeholder="Dado do Inimigo" onkeypress="if(event.key === 'Enter'){this.blur(); calcEnemyDmg();}">
-        <button class="btn btn-red" onclick="calcEnemyDmg()">CALCULAR IMPACTO</button>
-    </div>
-</div>
-
-<div class="modal-overlay" id="modal-exp">
-    <div class="modal-card text-center">
-        <button class="modal-close" onclick="closeModal('modal-exp')">×</button>
-        <h2>Adicionar EXP</h2>
-        <div style="font-size: 40px; margin-bottom: 10px;">✨</div>
-        <input type="number" id="input-exp" placeholder="Quantidade de EXP" onkeypress="if(event.key === 'Enter'){this.blur(); addExp();}">
-        <button class="btn btn-gold" onclick="addExp()">RECEBER EXP</button>
-    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="modal-add-item">
-    <div class="modal-card">
-        <button class="modal-close" onclick="closeModal('modal-add-item')">×</button>
-        <h2>Novo Item</h2>
-        <label>Nome do Item:</label>
-        <input type="text" id="item-name" placeholder="Ex: Espada, Colar de Ouro" onkeypress="if(event.key === 'Enter'){document.getElementById('item-val').focus();}">
-        
-        <div class="flex-between" style="gap: 10px;">
-            <div style="flex:1;">
-                <label>Tipo:</label>
-                <select id="item-type" onchange="toggleItemType()">
-                    <option value="atk">⚔️ Ataque</option>
-                    <option value="def">🛡️ Defesa</option>
-                    <option value="use">🧪 Poção/Uso</option>
-                    <option value="acc">💍 Acessório</option>
-                </select>
-            </div>
-            <div style="flex:1;">
-                <label>Valor (Poder):</label>
-                <input type="number" id="item-val" placeholder="Ex: 5" oninput="updateWeightBarUI()" onkeypress="if(event.key === 'Enter'){document.getElementById('item-weight').focus();}">
-            </div>
-        </div>
-
-        <div id="item-use-wrap" style="display:none;">
-            <label>Recupera o quê?</label>
-            <select id="item-use-type"><option value="hp">❤️ Curar HP</option><option value="mp">💎 Curar MP</option></select>
-        </div>
-        <div id="item-acc-wrap" style="display:none;">
-            <label>Buff do Acessório:</label>
-            <select id="item-acc-type">
-                <option value="atk">⚔️ +ATK Máximo</option>
-                <option value="def">🛡️ +DEF Máxima</option>
-                <option value="hp">❤️ +HP Máximo</option>
-                <option value="mp">💎 +MP Máximo</option>
-                <option value="kg">⚖️ +Carga Máxima</option>
-                <option value="+hp">🩸 Regen (+HP a cada 10s)</option>
-                <option value="+mp">✨ Regen (+MP a cada 10s)</option>
-            </select>
-        </div>
-        
-        <label style="margin-top: 5px;">Peso do Item (Kg):</label>
-        <div class="flex-between" style="gap: 10px; margin-bottom: 5px;">
-            <input type="number" id="item-weight" placeholder="Ex: 3" style="margin: 0;" oninput="updateWeightBarUI()" onkeypress="if(event.key === 'Enter'){this.blur(); saveItem();}">
-            <button class="btn btn-gold btn-small" style="padding: 12px; border-radius: 8px;" onclick="autoGenerateWeight()">🎲 AUTO</button>
-        </div>
-        
-        <div class="bar-container" style="height: 12px; margin-bottom: 15px;">
-            <div class="bar-fill" id="weight-indicator-bar" style="width: 0%; transition: background 0.3s, width 0.3s;"></div>
-        </div>
-
-        <button class="btn btn-primary" onclick="saveItem()">ADICIONAR NA MOCHILA</button>
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-add-item')">×</button>
+    <h2 class="modal-title" id="add-item-title">Novo Item</h2>
+    <label>Tipo:</label>
+    <select id="item-type" onchange="toggleItemType()">
+      <option value="atk">⚔️ Arma (Ataque)</option>
+      <option value="def">🛡️ Roupa (Defesa)</option>
+      <option value="acc">💍 Acessório / Passiva</option>
+      <option value="use">🧪 Poção / Consumível</option>
+      <option value="gold">💰 Ouro (Achar)</option>
+    </select>
+    <div id="wrap-normal-fields">
+      <div id="wrap-name">
+        <input type="text" id="item-name" placeholder="Nome do Item (Ex: Faca)">
+        <input type="text" id="item-lore" placeholder="Descrição/Detalhe (Opcional)" style="font-weight:normal;font-style:italic;">
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label>Poder/Bônus</label><input type="number" id="item-val" placeholder="Ex: 5"></div>
+        <div style="flex:1;" id="wrap-price-inner"><label>Valor Pago (G)</label><input type="number" id="item-price" placeholder="Ex: 50"></div>
+      </div>
+      <div id="item-use-wrap" style="display:none;background:rgba(0,0,0,0.03);padding:10px;border-radius:8px;margin-bottom:10px;">
+        <label>Efeito da Poção:</label>
+        <select id="item-use-type" onchange="toggleDurationField()">
+          <option value="hp_inst">❤️ +HP Instantâneo</option>
+          <option value="mp_inst">💧 +Mana Instantânea</option>
+          <option value="exp">✨ +EXP Instantânea</option>
+          <option value="hp_hot">🩸 Cura HP por Turnos</option>
+          <option value="mp_hot">💧 Restaura MP por Turnos</option>
+          <option value="buff_atk">⚔️ Buff: +ATK Temp</option>
+          <option value="buff_def">🛡️ Buff: +DEF Temp</option>
+        </select>
+        <input type="number" id="item-duration" placeholder="Duração (Nº de Turnos)" style="display:none;margin-top:5px;">
+      </div>
+      <div id="item-acc-wrap" style="display:none;">
+        <label>Tipo de Bônus:</label>
+        <select id="item-acc-type">
+          <option value="atk">⚔️ +ATK Permanente</option>
+          <option value="def">🛡️ +DEF Permanente</option>
+          <option value="hp">❤️ +HP Máximo</option>
+          <option value="mp">💧 +MP Máximo</option>
+          <option value="kg">💪 +Carga Máxima</option>
+          <option value="+hp">🩸 Regen (+HP por Turno)</option>
+          <option value="+mp">💧 Regen (+MP por Turno)</option>
+        </select>
+      </div>
+      <div id="wrap-weight" style="display:flex;gap:10px;align-items:flex-end;">
+        <div style="flex:1;"><label>Peso (Kg)</label><input type="number" id="item-weight" placeholder="Ex: 2" style="margin:0;"></div>
+        <button class="btn btn-gold" style="width:auto;padding:11px 14px;margin-bottom:12px;" onclick="autoGenerateWeight()">🎲 Auto</button>
+      </div>
     </div>
+    <div id="wrap-gold-fields" style="display:none;">
+      <label>Quantidade de Ouro (G)</label>
+      <input type="number" id="item-gold-val" placeholder="Ex: 100">
+    </div>
+    <button class="btn btn-primary" id="btn-save-item" onclick="saveItem()" style="margin-top:8px;">SALVAR</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-effect">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-add-effect')">×</button>
+    <h2 class="modal-title">Forçar Efeito</h2>
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <button class="btn btn-green" id="btn-eff-pos" onclick="setEffectMode('pos')">Bênção (+)</button>
+      <button class="btn btn-red" id="btn-eff-neg" onclick="setEffectMode('neg')">Maldição (−)</button>
+    </div>
+    <label>Atributo:</label>
+    <select id="eff-stat">
+      <option value="atk">⚔️ Ataque</option>
+      <option value="def">🛡️ Defesa</option>
+      <option value="hp">❤️ HP Máximo</option>
+      <option value="kg">💪 Carga</option>
+    </select>
+    <label>Poder:</label><input type="number" id="eff-val" placeholder="Ex: 3">
+    <label>Duração (Turnos):</label><input type="number" id="eff-dur" placeholder="Ex: 3">
+    <label>Nome/Motivo:</label><input type="text" id="eff-desc" placeholder="Ex: Veneno do Mago">
+    <button class="btn btn-primary" onclick="saveManualEffect()">APLICAR EFEITO</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-bar-action">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-bar-action')">×</button>
+    <h2 class="modal-title" id="bar-title">Ação</h2>
+    <label>Quantidade:</label>
+    <input type="number" id="bar-val-input" placeholder="Ex: 5">
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-red" id="btn-bar-sub" onclick="executeBarAction('sub')">Perder (−)</button>
+      <button class="btn btn-green" onclick="executeBarAction('add')">Ganhar (+)</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-def">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-def')">×</button>
+    <h2 class="modal-title" id="def-title">🛡️ Defesa</h2>
+    <div style="text-align:center;padding:10px 0;">
+      <div id="def-dice-display" style="font-size:52px;font-family:'Cinzel';font-weight:900;color:var(--ink);">🎲</div>
+      <div id="def-log" style="font-size:13px;color:var(--ink-light);margin-top:5px;line-height:1.6;"></div>
+    </div>
+    <div id="def-damage-area" style="display:none;margin-top:12px;">
+      <label>Quanto de dano o monstro causou?</label>
+      <input type="number" id="def-damage-input" placeholder="Ex: 8">
+      <button class="btn btn-primary" onclick="applyDefDamage()">⚔️ Aplicar Dano</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ATRIBUTO — popup ao clicar no atributo na ficha -->
+<div class="modal-overlay" id="modal-attr-info">
+  <div class="modal-card" style="text-align:center;">
+    <button class="modal-close" onclick="closeModal('modal-attr-info')">×</button>
+    <h2 class="modal-title" id="attr-info-title">Atributo</h2>
+    <p id="attr-info-msg" style="margin:10px 0 15px;font-size:14px;line-height:1.8;text-align:left;"></p>
+    <div id="attr-info-value" style="font-size:28px;font-weight:900;font-family:'Cinzel';color:var(--gem-blue);margin-bottom:10px;"></div>
+    <button class="btn btn-primary" onclick="closeModal('modal-attr-info')">Entendi</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-sell">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-sell')">×</button>
+    <h2 class="modal-title">Pechincha (Vender)</h2>
+    <p style="font-size:12px;text-align:center;">Negocie com o Mestre. Máximo: 75% do valor.</p>
+    <p style="font-size:28px;font-weight:bold;color:var(--gold);text-align:center;margin:12px 0;">💰 <span id="sell-price-display">0</span>G</p>
+    <input type="range" id="sell-slider" min="1" max="100" value="50" oninput="document.getElementById('sell-price-display').innerText=this.value">
+    <button class="btn btn-gold" style="margin-top:12px;" onclick="confirmSell()">VENDER</button>
+  </div>
 </div>
 
 <div class="modal-overlay" id="modal-potions">
-    <div class="modal-card">
-        <button class="modal-close" onclick="closeModal('modal-potions')">×</button>
-        <h2 style="margin-bottom: 20px;">Suas Poções</h2>
-        <div id="potion-list-popup" style="max-height: 40vh; overflow-y: auto; padding-right: 5px;"></div>
-    </div>
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-potions')">×</button>
+    <h2 class="modal-title">Poções Rápidas</h2>
+    <div id="potion-list-popup"></div>
+  </div>
 </div>
 
-<div class="modal-overlay" id="modal-help">
-    <div class="modal-card" style="max-width: 400px; max-height: 85vh; overflow-y: auto;">
-        <button class="modal-close" onclick="closeModal('modal-help')">×</button>
-        <h2 style="border-bottom: 2px solid var(--gold); padding-bottom: 10px;">Guia de Sobrevivência</h2>
-        <div id="help-content" style="font-size: 14px; line-height: 1.6; color: var(--ink);"></div>
+<div class="modal-overlay" id="modal-revive">
+  <div class="modal-card" style="text-align:center;">
+    <button class="modal-close" onclick="closeModal('modal-revive')">×</button>
+    <h2 class="modal-title">⚕️ Reviver Personagem</h2>
+    <p style="font-size:13px;margin-bottom:15px;">Reviver com quanto HP?</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-green" onclick="confirmRevive('um')">💚 1 HP (Milagre)</button>
+      <button class="btn btn-blue" onclick="confirmRevive('meio')">💙 Metade do HP</button>
+      <button class="btn btn-gold" onclick="confirmRevive('full')">💛 HP Completo</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-alert">
+  <div class="modal-card" style="text-align:center;">
+    <h2 class="modal-title" id="alert-title">Aviso</h2>
+    <p id="alert-msg" style="margin:15px 0;font-size:14px;line-height:1.6;"></p>
+    <button class="btn btn-primary" onclick="closeModal('modal-alert')">OK</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-card" style="text-align:center;">
+    <h2 class="modal-title" id="confirm-title">Confirmação</h2>
+    <p id="confirm-msg" style="margin:15px 0;font-size:14px;line-height:1.6;"></p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-outline" onclick="closeModal('modal-confirm')">Cancelar</button>
+      <button class="btn btn-blue" id="btn-confirm-action">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-info">
+  <div class="modal-card" style="text-align:center;">
+    <button class="modal-close" onclick="closeModal('modal-info')">×</button>
+    <h2 class="modal-title" id="info-title">Info</h2>
+    <p id="info-msg" style="margin:15px 0;font-size:14px;line-height:1.7;text-align:left;"></p>
+  </div>
 </div>
 
 <script>
-    const CLASSES = {
-        "Guerreiro": { xpBase: 100, skill: "Fúria Inabalável", cost: 10, costType: 'hp', desc: "Soma +5 no dano FINAL. (Custa 10 de HP)." },
-        "Arqueiro": { xpBase: 100, skill: "Chuva de Flechas", cost: 15, costType: 'mp', desc: "Dano em área. Soma +3 no dano de TODOS inimigos." },
-        "Mago": { xpBase: 110, skill: "Colapso Arcano", cost: 20, costType: 'mp', desc: "Dano mágico absurdo! Soma +10 no dano FINAL." },
-        "Necromante": { xpBase: 105, skill: "Corrente de Almas", cost: 15, costType: 'mp', desc: "Revive aliado caído com metade do HP." },
-        "Druida": { xpBase: 100, skill: "Metamorfose", cost: 15, costType: 'mp', desc: "Fera: Soma +2 nos dados de ATK e DEF por 2 rodadas." },
-        "Soldado": { xpBase: 95, skill: "Formação Falange", cost: 10, costType: 'mp', desc: "Aumenta defesa dos aliados em +2 na próxima rodada." },
-        "Assassino": { xpBase: 105, skill: "Golpe das Sombras", cost: 15, costType: 'mp', desc: "Dano Triplo se bater furtivo." },
-        "Bardo": { xpBase: 90, skill: "Canção Fagulha", cost: 10, costType: 'mp', desc: "Dá bônus na equipe de +2 nos dados de ataque." }
-    };
-    const STAT_NAMES = { FOR: "Força", INT: "Inteligência", AGI: "Agilidade", VIT: "Vitalidade", CAR: "Carisma", SOR: "Sorte" };
-    
-    const ATTRIBUTE_HELP = {
-        FOR: { desc: "Força bruta, usada para ataques e limite de carga.", fn: (v) => `Você tem <strong>${v} FOR</strong>.<br>Ganha <strong>+${v}</strong> no Ataque e <strong>+${v*5}kg</strong> na Carga.` },
-        INT: { desc: "Poder mágico e reserva de mana.", fn: (v) => `Você tem <strong>${v} INT</strong>.<br>Ganha <strong>+${v}</strong> de Dano Mágico e <strong>+${v*2} MP</strong>.` },
-        AGI: { desc: "Velocidade de ataque e reflexos para esquiva.", fn: (v) => `Você tem <strong>${v} AGI</strong>.<br>Logo, tem <strong>+${v}</strong> em Velocidade e Esquiva.` },
-        VIT: { desc: "Resistência física total.", fn: (v) => `Você tem <strong>${v} VIT</strong>.<br>Ganha <strong>+${v*3} HP</strong> somados aos 20 iniciais.` },
-        CAR: { desc: "Lábia e negociação de preços.", fn: (v) => `Você tem <strong>${v} CAR</strong>.<br>Ganha <strong>+${Math.floor(v/2)}</strong> de Persuasão e <strong>${Math.floor(v/2)*10}%</strong> de Desconto.` },
-        SOR: { desc: "Chance de golpes críticos e saque.", fn: (v) => `Você tem <strong>${v} SOR</strong>.<br>Acerto crítico ao tirar <strong>${20-v} ou mais</strong> no D20 🎲.` }
-    };
+// ════════════════════════════════════════
+//  DADOS DAS CLASSES
+// ════════════════════════════════════════
+const CLASSES_DATA = {
+  "Guerreiro":  { skill:"Fúria Inabalável",    cost:10, desc:"Soma +2 nos dados de ataque e +5 de dano extra, mas perde 5 HP por uso.",     getDano:s=>`Dano extra: +${s.FOR+5}`, hpSelf:5 },
+  "Arqueiro":   { skill:"Chuva de Flechas",    cost:15, desc:"Dano em área: +1 nos dados e +3 de dano em cada adversário.",                 getDano:s=>`Dano em área: +${s.FOR+3}`, hpSelf:0 },
+  "Mago":       { skill:"Colapso Arcano",      cost:20, desc:"Dano mágico +10 no HP do alvo.",                                              getDano:s=>`Dano mágico: +${s.INT+10}`, hpSelf:0 },
+  "Necromante": { skill:"Corrente de Almas",   cost:15, desc:"Revive aliado caído com metade do HP total.",                                 getDano:s=>`Dano base: +${s.INT}`, hpSelf:0 },
+  "Druida":     { skill:"Metamorfose Selvagem",cost:15, desc:"Vira uma fera: +2 nos dados de ataque e defesa por 2 rodadas.",               getDano:s=>`Dano fera: +${s.FOR}`, hpSelf:0 },
+  "Soldado":    { skill:"Formação de Falange", cost:10, desc:"Aumenta a defesa dos aliados próximos em +2 na próxima rodada.",             getDano:s=>`Dano físico: +${s.FOR}`, hpSelf:0 },
+  "Assassino":  { skill:"Golpe das Sombras",   cost:15, desc:"Dano TRIPLO se furtivo + veneno (−1 HP/rodada no adversário).",              getDano:s=>`DANO TRIPLO se furtivo (bônus: +${s.FOR})`, hpSelf:0 },
+  "Bardo":      { skill:"Canção da Fagulha",   cost:10, desc:"Dá +2 nos dados de ataque para a equipe na próxima rodada.",                 getDano:s=>`Dano mágico: +${s.INT}`, hpSelf:0 }
+};
 
-    let player = {};
-    let overloadInterval = null;
-    let regenInterval = null;
-    let currentOverloadState = 0; 
-    let confirmCallback = null;
+const STAT_NAMES = {FOR:"Força",INT:"Inteligência",AGI:"Agilidade",VIT:"Vitalidade",CAR:"Carisma",SOR:"Sorte"};
 
-    function init() {
-        let savedData = localStorage.getItem('rpg_character');
-        if (!savedData) return window.location.href = 'index.html';
-        player = JSON.parse(savedData);
-        
-        if (player.level === undefined) player.level = 1;
-        if (player.exp === undefined) player.exp = 0;
-        if (player.freePoints === undefined) player.freePoints = 0;
-        if (!player.inventory) player.inventory = [];
-        
-        if (player.inventory.length === 0) {
-            player.inventory.push({ id: Date.now(), name: "Roupas Comuns", type: 'def', value: 0, weight: 9, equipped: true });
-        }
-        player.inventory.forEach(i => { if(i.weight === undefined) i.weight = 1; });
+const ATTR_INFO = {
+  FOR: { icon:"💪", desc:"<strong>Força</strong> aumenta seu <em>bônus de dano</em> em ataques físicos e a sua <em>Carga Máxima</em> (+5kg por ponto).\nQuanto maior, mais você carrega e mais forte é seu golpe." },
+  INT: { icon:"🧠", desc:"<strong>Inteligência</strong> aumenta sua <em>Mana Máxima</em> (+2 MP por ponto), essencial para usar habilidades de classe repetidas vezes." },
+  AGI: { icon:"🌀", desc:"<strong>Agilidade</strong> aumenta seu <em>Dado de Iniciativa</em>, determinando quem age primeiro no combate. Quanto maior, mais chance de agir antes do inimigo." },
+  VIT: { icon:"❤️", desc:"<strong>Vitalidade</strong> aumenta sua <em>Vida Máxima</em> (+3 HP por ponto). Personagens com alta VIT sobrevivem mais golpes." },
+  CAR: { icon:"🗣️", desc:"<strong>Carisma</strong> dá <em>desconto na loja</em> ao comprar itens. A cada 2 pontos de CAR você ganha 10% de desconto (máximo 50%)." },
+  SOR: { icon:"🍀", desc:"<strong>Sorte</strong> reduz o número mínimo para <em>Acerto Crítico</em>. Com SOR 4 você critica com 16+, com SOR 6 critica com 14+. Críticos dão bônus de dano e efeito visual!" }
+};
 
-        recalcMaxStats(); updateGameUI();
-        startRegenLoop();
+// ════════════════════════════════════════
+//  ESTADO GLOBAL
+// ════════════════════════════════════════
+let player = {
+  name:"Desconhecido",cls:"Guerreiro",personality:"",personalityDesc:"",desc:"",
+  skill:"Habilidade",cost:10,skillDesc:"Habilidade especial.",danoPronto:"—",
+  finalStats:{FOR:2,INT:1,AGI:1,VIT:2,CAR:1,SOR:1},
+  level:1,exp:0,hp:20,maxHp:20,mp:15,maxMp:15,
+  freePoints:0,gold:0,maxLevelReached:1,
+  inventory:[],buffs:[],hots:[],history:[],notes:"",isDead:false
+};
+let turnState='wait', actionsUsed={atk:0,pot:0,def:0};
+let activeBarTarget='', selectedItem=null, isBuyMode=false;
+let effMode='pos', pwdCallback=null, pendingStatAllocation=null;
+let defIsReaction=false, defShieldTotal=0;
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+function init() {
+  let saved=localStorage.getItem('rpg_character');
+  if(saved){
+    let p=JSON.parse(saved);
+    player={...player,...p};
+    if(!player.history)   player.history=[];
+    if(!player.buffs)     player.buffs=[];
+    if(!player.hots)      player.hots=[];
+    if(!player.inventory) player.inventory=[];
+    if(player.gold===undefined) player.gold=0;
+    if(!player.maxLevelReached) player.maxLevelReached=player.level;
+    if(!player.notes)    player.notes='';
+    if(player.isDead===undefined) player.isDead=false;
+    if(!player.skill&&player.skillName) player.skill=player.skillName;
+    if(!player.cost&&player.skillCost)  player.cost=player.skillCost;
+  } else {
+    player.name="Herói"; player.cls="Assassino";
+    player.personality="O Rato de Masmorra"; player.personalityDesc="A curiosidade vence o bom senso.";
+    player.finalStats={FOR:3,INT:1,AGI:4,VIT:2,CAR:1,SOR:4};
+  }
+  let cd=CLASSES_DATA[player.cls];
+  if(cd){ player.skill=cd.skill; player.cost=cd.cost; player.skillDesc=cd.desc; player.danoPronto=cd.getDano(player.finalStats); }
+  recalcMaxStats();
+  updateUI();
+  switchTab('combate');
+  document.getElementById('notes-area').value=player.notes||'';
+  // FIX: só mostra overlay de morte se realmente está morto E hp<=0
+  if(player.isDead && player.hp<=0) document.getElementById('death-overlay').classList.add('show');
+  else player.isDead=false; // limpa flag se hp foi restaurado
+}
+function saveGame(){ localStorage.setItem('rpg_character',JSON.stringify(player)); }
+
+// ════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════
+function showModal(id){let e=document.getElementById(id);e.style.display='flex';setTimeout(()=>e.style.opacity='1',10);}
+function closeModal(id){let e=document.getElementById(id);e.style.opacity='0';setTimeout(()=>{e.style.display='none';e.classList.remove('show');},200);}
+function customAlert(t,txt){document.getElementById('alert-title').innerText=t;document.getElementById('alert-msg').innerHTML=txt;showModal('modal-alert');}
+function customConfirm(t,txt,cb){document.getElementById('confirm-title').innerText=t;document.getElementById('confirm-msg').innerHTML=txt;document.getElementById('btn-confirm-action').onclick=()=>{cb();closeModal('modal-confirm');};showModal('modal-confirm');}
+function showInfo(t,msg){document.getElementById('info-title').innerText=t;document.getElementById('info-msg').innerHTML=msg;showModal('modal-info');}
+function spinDice(elId,val,crit=false){
+  let e=document.getElementById(elId); e.innerText=val; e.style.display='block';
+  e.classList.remove('spin','critico'); void e.offsetWidth; e.classList.add('spin');
+  if(crit) e.classList.add('critico');
+}
+
+// ════════════════════════════════════════
+//  TABS — FIX: dado volta pra 🎲 ao sair
+// ════════════════════════════════════════
+function switchTab(tabId){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tab-'+tabId).classList.add('active');
+  document.getElementById('nav-'+tabId).classList.add('active');
+  document.getElementById('bars-combat').style.display=tabId==='combate'?'block':'none';
+  document.getElementById('bars-exp').style.display   =tabId==='ficha'  ?'block':'none';
+  document.getElementById('bars-carga').style.display =tabId==='mochila'?'block':'none';
+  document.getElementById('status-ribbon').classList.toggle('visible',tabId!=='combate');
+  // FIX: reseta dado livre ao voltar pra combate
+  if(tabId==='combate'){
+    document.getElementById('main-dice').innerText='🎲';
+    document.getElementById('free-dice-detail').innerText='';
+    document.getElementById('combat-log-main').innerText= turnState==='active'?'Seu turno! Escolha uma ação.':'Aguardando ação...';
+  }
+  if(tabId==='ficha')   renderFicha();
+  if(tabId==='mochila') renderMochila();
+  updateUI();
+}
+
+// ════════════════════════════════════════
+//  CÁLCULOS
+// ════════════════════════════════════════
+function getExpNext(lvl){return Math.floor(100*Math.pow(1.35,lvl-1));}
+function getEqVal(type) {return player.inventory.filter(i=>i.type===type&&i.equipped).reduce((s,i)=>s+i.value,0);}
+function getAccVal(bt)  {return player.inventory.filter(i=>i.type==='acc'&&i.equipped&&i.useType===bt).reduce((s,i)=>s+i.value,0);}
+function getBuffVal(bt) {return player.buffs.filter(b=>b.type===bt).reduce((s,b)=>s+b.value,0);}
+function getMaxLoad()   {return 10+(player.finalStats.FOR*5)+getAccVal('kg')+getBuffVal('kg')+((player.level-1)*2);}
+function getCurrentLoad(){return player.inventory.reduce((s,i)=>{let w=i.weight||0;if(i.equipped&&i.type!=='use')w/=2;return s+w;},0);}
+function getCritThreshold(){return Math.max(15,20-player.finalStats.SOR);}
+function getCarismaDiscount(){return Math.min(50,Math.floor(player.finalStats.CAR/2)*10);}
+function recalcMaxStats(){
+  player.maxHp=20+(player.finalStats.VIT*3)+getAccVal('hp')+getBuffVal('hp')+((player.level-1)*2);
+  player.maxMp=15+(player.finalStats.INT*2)+getAccVal('mp')+getBuffVal('mp')+(player.level-1);
+  if(player.hp>player.maxHp) player.hp=player.maxHp;
+  if(player.mp>player.maxMp) player.mp=player.maxMp;
+  let cd=CLASSES_DATA[player.cls]; if(cd) player.danoPronto=cd.getDano(player.finalStats);
+}
+
+// ════════════════════════════════════════
+//  UPDATE UI
+// ════════════════════════════════════════
+function updateUI(){
+  document.getElementById('ui-gold').innerText  =player.gold;
+  document.getElementById('ui-name').innerText  =player.name;
+  document.getElementById('ui-class').innerText =player.cls;
+  document.getElementById('ui-level').innerText =player.level;
+  let en=getExpNext(player.level);
+  document.getElementById('txt-exp').innerText   =`${player.exp}/${en}`;
+  document.getElementById('bar-exp').style.width =`${Math.min(100,(player.exp/en)*100)}%`;
+  // FIX: HP nunca vai abaixo de 0 na exibição
+  let hpShow=Math.max(0,player.hp);
+  document.getElementById('txt-hp').innerText   =`${hpShow}/${player.maxHp}`;
+  document.getElementById('bar-hp').style.width =`${Math.max(0,(hpShow/player.maxHp)*100)}%`;
+  document.getElementById('txt-mp').innerText   =`${player.mp}/${player.maxMp}`;
+  document.getElementById('bar-mp').style.width =`${Math.max(0,(player.mp/player.maxMp)*100)}%`;
+  document.getElementById('ribbon-hp').innerText=`${hpShow}/${player.maxHp}`;
+  document.getElementById('ribbon-mp').innerText=`${player.mp}/${player.maxMp}`;
+  let cMax=getMaxLoad(), cCur=getCurrentLoad();
+  let cStr=`${parseFloat(cCur.toFixed(1))}/${cMax}kg`;
+  document.getElementById('txt-carga').innerText    =cStr;
+  document.getElementById('ribbon-carga').innerText =cStr;
+  let wc=document.getElementById('warn-carga');
+  if(cCur>cMax){wc.style.display='block';wc.innerText=cCur/cMax>=1.25?'⚠️ Sobrecarga Crítica! (sem ataques)':'⚠️ Sobrecarga Leve! (−1 HP/turno)';}
+  else wc.style.display='none';
+  document.getElementById('lbl-hp').className    =getBuffVal('hp')>0?'buff-aura':'';
+  document.getElementById('lbl-mp').className    =getBuffVal('mp')>0?'buff-aura':'';
+  document.getElementById('lbl-carga').className =getBuffVal('kg')>0?'buff-aura':'';
+  document.body.classList.toggle('low-hp',player.hp>0&&player.hp<=player.maxHp*0.25);
+  // botões turno — FIX: defesa tem limite de 1 uso por turno (btn-def)
+  let over=(getCurrentLoad()/getMaxLoad()>=1.25);
+  document.getElementById('count-atk').innerText=`${actionsUsed.atk}/1`;
+  let bA=document.getElementById('btn-atk'), bD=document.getElementById('btn-def'), bS=document.getElementById('btn-skill');
+  if(turnState==='active'){
+    bA.disabled=actionsUsed.atk>=1||over;
+    bS.disabled=actionsUsed.atk>=1||over;
+    bD.disabled=actionsUsed.def>=1; // FIX: 1 defesa por turno
+  } else { bA.disabled=true; bD.disabled=true; bS.disabled=true; }
+  let disc=getCarismaDiscount(), ci=document.getElementById('carisma-info');
+  if(disc>0){ci.style.display='block';document.getElementById('carisma-discount').innerText=disc+'%';}
+  else ci.style.display='none';
+  renderBuffsList();
+  saveGame();
+}
+
+function renderBuffsList(){
+  let d=document.getElementById('active-buffs-container'); d.innerHTML='';
+  player.buffs.forEach(b=>{d.innerHTML+=`<div style="font-size:11px;background:rgba(156,39,176,0.1);border-left:3px solid #8e24aa;padding:4px 8px;border-radius:4px;">⚡ ${b.name}: ${b.value>0?'+'+b.value:b.value} ${b.type.toUpperCase()} (${b.duration} turnos)</div>`;});
+  player.hots.forEach(h=>{d.innerHTML+=`<div style="font-size:11px;background:rgba(211,47,47,0.1);border-left:3px solid var(--gem-red);padding:4px 8px;border-radius:4px;">🩸 ${h.name}: +${h.amount} ${h.target.toUpperCase()}/turno (${h.duration} turnos)</div>`;});
+}
+
+// ════════════════════════════════════════
+//  BARRAS
+// ════════════════════════════════════════
+function openBarModal(target){
+  activeBarTarget=target;
+  document.getElementById('bar-val-input').value='';
+  document.getElementById('bar-title').innerText='Ajustar '+{exp:'Experiência',hp:'Vida (HP)',mp:'Mana (MP)'}[target];
+  document.getElementById('btn-bar-sub').style.display=target==='exp'?'none':'block';
+  showModal('modal-bar-action');
+}
+function executeBarAction(op){
+  let val=parseInt(document.getElementById('bar-val-input').value);
+  if(isNaN(val)||val<=0) return;
+  closeModal('modal-bar-action');
+  if(activeBarTarget==='exp'&&op==='add'){
+    logAction('exp',val,`Ganhou ${val} EXP`); player.exp+=val;
+    while(player.exp>=getExpNext(player.level)){
+      player.exp-=getExpNext(player.level); player.level++;
+      if(player.level>player.maxLevelReached){player.freePoints++;player.maxLevelReached=player.level;}
+      recalcMaxStats(); player.hp=player.maxHp; player.mp=player.maxMp;
+      customAlert("🎉 NÍVEL UP!",`Você atingiu o Nível ${player.level}!<br>Vida e Mana restauradas.`);
     }
+  } else if(activeBarTarget==='hp'){
+    if(op==='add'){player.hp=Math.min(player.maxHp,player.hp+val);logAction('hp',val,`Curou ${val} HP`);}
+    if(op==='sub'){player.hp-=val;logAction('hp',-val,`Sofreu ${val} dano`);}
+  } else if(activeBarTarget==='mp'){
+    if(op==='add'){player.mp=Math.min(player.maxMp,player.mp+val);logAction('mp',val,`Recuperou ${val} Mana`);}
+    if(op==='sub'){player.mp=Math.max(0,player.mp-val);logAction('mp',-val,`Gastou ${val} Mana`);}
+  }
+  updateUI();
+  if(player.hp<=0) promptDeath();
+}
 
-    function showScreen(id) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        resetDiceArea(); 
-        if(id === 'screen-game') updateGameUI();
-        if(id === 'screen-inventory') renderInventory();
-        if(id === 'screen-attributes') renderAttributes();
-    }
-    
-    function openModal(id) { resetDiceArea(); document.getElementById(id).classList.add('show'); }
-    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+// ════════════════════════════════════════
+//  COMBATE
+// ════════════════════════════════════════
+function startTurn(){
+  turnState='active'; actionsUsed={atk:0,pot:0,def:0};
+  document.getElementById('main-dice').innerText='🎲';
+  document.getElementById('free-dice-detail').innerText='';
+  document.getElementById('combat-log-main').innerText='Seu turno! Escolha uma ação.';
+  document.getElementById('wait-overlay').classList.add('hidden');
+  updateUI();
+}
 
-    function customAlert(title, text) {
-        document.getElementById('alert-title').innerText = title;
-        document.getElementById('alert-msg').innerHTML = text;
-        openModal('modal-alert');
-    }
+function endTurn(){
+  let logs='';
+  let cMax=getMaxLoad(), cCur=getCurrentLoad(), pct=cCur/cMax;
+  if(pct>=1.25){player.hp-=5;logs+='💔 Sobrecarga Severa: −5 HP.<br>';logAction('hp',-5,'Dano por Sobrecarga',false);}
+  else if(pct>1.0){player.hp-=1;logs+='💔 Sobrecarga Leve: −1 HP.<br>';logAction('hp',-1,'Dano por Sobrecarga',false);}
+  let rHp=getAccVal('+hp'), rMp=getAccVal('+mp');
+  if(rHp>0){player.hp=Math.min(player.maxHp,player.hp+rHp);logs+=`💍 Regen: +${rHp} HP.<br>`;}
+  if(rMp>0){player.mp=Math.min(player.maxMp,player.mp+rMp);logs+=`💍 Regen: +${rMp} Mana.<br>`;}
+  for(let i=player.hots.length-1;i>=0;i--){
+    let h=player.hots[i];
+    if(h.target==='hp') player.hp=Math.min(player.maxHp,player.hp+h.amount);
+    else player.mp=Math.min(player.maxMp,player.mp+h.amount);
+    logs+=`🩸 ${h.name}: +${h.amount} ${h.target.toUpperCase()}.<br>`;
+    h.duration--; if(h.duration<=0) player.hots.splice(i,1);
+  }
+  let bEnd=false;
+  for(let i=player.buffs.length-1;i>=0;i--){
+    player.buffs[i].duration--;
+    if(player.buffs[i].duration<=0){logs+=`⏳ Efeito "${player.buffs[i].name}" expirou.<br>`;player.buffs.splice(i,1);bEnd=true;}
+  }
+  if(bEnd) recalcMaxStats();
+  turnState='wait'; actionsUsed={atk:0,pot:0,def:0};
+  document.getElementById('wait-overlay').classList.remove('hidden');
+  document.getElementById('init-dice').style.display='none';
+  document.getElementById('init-detail').style.display='none';
+  document.getElementById('main-dice').innerText='🎲';
+  document.getElementById('free-dice-detail').innerText='';
+  document.getElementById('combat-log-main').innerText='Aguardando ação...';
+  logAction('sys',0,'Encerrou o Turno',false);
+  updateUI();
+  if(player.hp<=0) promptDeath();
+  else if(logs) customAlert("Fim do Turno",logs);
+}
 
-    function customConfirm(title, text, callback) {
-        document.getElementById('confirm-title').innerText = title;
-        document.getElementById('confirm-msg').innerHTML = text;
-        
-        let btn = document.getElementById('btn-confirm-action');
-        let newBtn = btn.cloneNode(true); 
-        btn.parentNode.replaceChild(newBtn, btn);
-        
-        newBtn.onclick = function() {
-            callback();
-            closeModal('modal-confirm');
-        };
-        openModal('modal-confirm');
-    }
+function rollInitiative(){
+  let d=Math.floor(Math.random()*20)+1, agi=player.finalStats.AGI;
+  document.getElementById('init-d').innerText=d; document.getElementById('init-agi').innerText=agi;
+  document.getElementById('init-tot').innerText=d+agi; document.getElementById('init-detail').style.display='block';
+  spinDice('init-dice',d);
+}
 
-    // --- CÁLCULOS PRINCIPAIS ---
-    function getExpForNextLevel(lvl) { return Math.floor((CLASSES[player.cls]?.xpBase || 100) * Math.pow(1.35, lvl - 1)); }
-    function getEquippedTotal(type) { return player.inventory.filter(i => i.type === type && i.equipped).reduce((sum, i) => sum + i.value, 0); }
-    function getAccBuff(buffType) { return player.inventory.filter(i => i.type === 'acc' && i.equipped && i.useType === buffType).reduce((sum, i) => sum + i.value, 0); }
-    
-    function getMaxLoad() { return 10 + (player.finalStats.FOR * 5) + getAccBuff('kg') + ((player.level - 1) * 2); }
-    
-    function getCurrentLoad() { 
-        return player.inventory.reduce((sum, i) => {
-            let w = i.weight || 0;
-            if (i.equipped && i.type !== 'use') w = Math.ceil(w * 0.66); 
-            return sum + w;
-        }, 0); 
-    }
+// FIX: dado livre mostra número + AGI + soma abaixo; reseta ao novo turno
+function rollFreeDice(){
+  let d=Math.floor(Math.random()*20)+1, crit=d>=getCritThreshold();
+  let agi=player.finalStats.AGI;
+  spinDice('main-dice',d,crit);
+  document.getElementById('free-dice-detail').innerHTML=`AGI: ${agi} &nbsp;|&nbsp; Total: <strong>${d+agi}</strong>`;
+  document.getElementById('combat-log-main').innerHTML=crit
+    ?`🎲 Dado: <strong style="color:var(--gold);">${d} ★ CRÍTICO!</strong>`
+    :`🎲 Dado: <strong>${d}</strong>`;
+  if(crit) triggerCritEffect();
+}
 
-    function recalcMaxStats() {
-        player.maxHp = 20 + (player.finalStats.VIT * 3) + ((player.level - 1) * 2) + getAccBuff('hp');
-        player.maxMp = 15 + (player.finalStats.INT * 2) + ((player.level - 1) * 1) + getAccBuff('mp');
-        if(player.hp === undefined) player.hp = player.maxHp;
-        if(player.mp === undefined) player.mp = player.maxMp;
-    }
+function getD20(limitW){
+  let d=Math.floor(Math.random()*20)+1;
+  if(limitW&&getCurrentLoad()>getMaxLoad()&&d>10){customAlert("Exaustão de Peso","O excesso de peso limitou seu dado a 10.");return 10;}
+  return d;
+}
+function triggerCritEffect(){
+  document.body.classList.remove('crit-flash'); void document.body.offsetWidth;
+  document.body.classList.add('crit-flash'); setTimeout(()=>document.body.classList.remove('crit-flash'),800);
+}
 
-    function startRegenLoop() {
-        regenInterval = setInterval(() => {
-            if (player.hp > 0 && !document.body.classList.contains('is-dead')) {
-                let hpRegen = getAccBuff('+hp'); let mpRegen = getAccBuff('+mp'); let didHeal = false;
-                
-                if (hpRegen > 0 && player.hp < player.maxHp) { player.hp = Math.min(player.maxHp, player.hp + hpRegen); didHeal = true; }
-                if (mpRegen > 0 && player.mp < player.maxMp) { player.mp = Math.min(player.maxMp, player.mp + mpRegen); didHeal = true; }
-                if (didHeal) updateGameUI(); 
-            }
-        }, 10000);
-    }
+function actionAtk(){
+  let d=getD20(true); actionsUsed.atk++;
+  let crit=d>=getCritThreshold();
+  let eq=getEqVal('atk')+getAccVal('atk')+getBuffVal('atk');
+  let base=player.finalStats.FOR, lvl=player.level-1, tot=d+base+eq+lvl;
+  let aura=getBuffVal('atk')>0?'buff-aura':'';
+  let critLabel=crit?` <span class="crit-badge">★ CRÍTICO!</span>`:'';
+  spinDice('main-dice',d,crit);
+  document.getElementById('free-dice-detail').innerText='';
+  document.getElementById('combat-log-main').innerHTML=
+    `⚔️ Ataque${critLabel}<br>Dado(${d})+FOR/Nv(${base+lvl})+<span class="${aura}">Eq/Buff(${eq})</span>=<strong>${tot}</strong><br><small style="color:var(--ink-light);">Bônus: ${player.danoPronto}</small>`;
+  if(crit) triggerCritEffect();
+  logAction('sys',0,`Atacou: ${tot}${crit?' (CRÍTICO)':''}`,false);
+  updateUI();
+}
 
-    function checkDeath() {
-        if (player.hp <= 0 && !document.body.classList.contains('is-dead')) {
-            document.body.classList.add('is-dead');
-            document.getElementById('btn-fim').style.display = 'block';
-            document.getElementById('revive-options').style.display = 'none';
-            document.getElementById('modal-gameover').classList.add('show');
-            clearInterval(overloadInterval);
-        }
-    }
+// FIX: defesa tem limite de 1 por turno via actionsUsed.def
+function openDefModal(isReaction){
+  defIsReaction=isReaction;
+  document.getElementById('def-title').innerText=isReaction?'🛡️ Defesa (Reação)':'🛡️ Defesa';
+  document.getElementById('def-dice-display').innerText='...';
+  document.getElementById('def-log').innerText='';
+  document.getElementById('def-damage-area').style.display='none';
+  document.getElementById('def-damage-input').value='';
+  showModal('modal-def');
+  setTimeout(()=>{
+    let d=getD20(false), eq=getEqVal('def')+getAccVal('def')+getBuffVal('def'), lvl=player.level-1;
+    defShieldTotal=d+eq+lvl;
+    let el=document.getElementById('def-dice-display');
+    el.innerText=d; el.classList.remove('spin'); void el.offsetWidth; el.classList.add('spin');
+    let aura=getBuffVal('def')>0?'buff-aura':'';
+    document.getElementById('def-log').innerHTML=`Dado(${d})+Nível(${lvl})+<span class="${aura}">Armadura/Buff(${eq})</span><br><strong style="font-size:16px;">🛡️ Escudo Total: ${defShieldTotal}</strong>`;
+    document.getElementById('def-damage-area').style.display='block';
+    // FIX: só conta ação se for durante o turno e não for reação
+    if(!isReaction){ actionsUsed.def++; updateUI(); }
+    logAction('sys',0,`Defendeu: Escudo ${defShieldTotal}`,false);
+  },500);
+}
 
-    // --- MORTE ---
-    function showReviveOptions() {
-        document.getElementById('btn-fim').style.display = 'none';
-        document.getElementById('revive-options').style.display = 'flex';
-    }
+function applyDefDamage(){
+  let raw=parseInt(document.getElementById('def-damage-input').value);
+  if(isNaN(raw)||raw<0) return;
+  let real=Math.max(0,raw-defShieldTotal);
+  closeModal('modal-def');
+  if(real>0){
+    player.hp-=real; logAction('hp',-real,`Sofreu ${real} dano após defesa`);
+    customAlert("💥 Dano Recebido",`Ataque: ${raw}<br>Escudo: ${defShieldTotal}<br><strong>Dano real: ${real} HP</strong>`);
+  } else {
+    customAlert("🛡️ Defesa Perfeita!",`Ataque: ${raw} | Escudo: ${defShieldTotal}<br><strong>Nenhum dano!</strong>`);
+  }
+  updateUI(); if(player.hp<=0) promptDeath();
+}
 
-    function revivePlayer(keepInv) {
-        let penalty = player.level * 10; player.exp -= penalty; let levelsLost = 0;
-        while (player.exp < 0 && player.level > 1) { player.level--; player.exp += getExpForNextLevel(player.level); levelsLost++; }
-        if (player.exp < 0) player.exp = 0;
-        
-        if (levelsLost > 0) {
-            for(let s in STAT_NAMES) player.finalStats[s] = 2 + (CLASSES[player.cls].mods[s] || 0);
-            player.freePoints = player.level - 1;
-        }
+function actionSkill(){
+  let cd=CLASSES_DATA[player.cls]||{};
+  let cost=cd.cost||player.cost||10, skill=cd.skill||player.skill, desc=cd.desc||player.skillDesc;
+  if(player.mp<cost) return customAlert("Sem Mana",`${skill} custa ${cost} Mana. Você tem ${player.mp}.`);
+  if(player.cls==="Guerreiro"&&cd.hpSelf>0) player.hp=Math.max(1,player.hp-cd.hpSelf);
+  player.mp-=cost; actionsUsed.atk++;
+  let d=getD20(true), crit=d>=getCritThreshold();
+  spinDice('main-dice',d,crit);
+  document.getElementById('free-dice-detail').innerText='';
+  document.getElementById('combat-log-main').innerHTML=
+    `🔥 <strong>${skill}</strong>${crit?'<span class="crit-badge" style="margin-left:6px;">★ CRÍTICO!</span>':''}<br><em style="font-size:11px;color:var(--ink-light);">${desc}</em><br>Dado: ${d} | Mana: −${cost}<br><small style="color:var(--gold);">${player.danoPronto}</small>`;
+  if(crit) triggerCritEffect();
+  logAction('mp',-cost,`Usou ${skill}`); updateUI();
+  if(player.hp<=0) promptDeath();
+}
 
-        if (!keepInv) player.inventory = [{ id: Date.now(), name: "Roupas Comuns", type: 'def', value: 0, weight: 9, equipped: true }];
-        
-        recalcMaxStats(); player.hp = Math.floor(player.maxHp / 2); if(player.hp < 1) player.hp = 1;
-        
-        document.body.classList.remove('is-dead'); closeModal('modal-gameover');
-        let msg = `Você reviveu com 50% de HP e perdeu <strong>${penalty} de EXP</strong>.`;
-        if (levelsLost > 0) msg += `<br><br><span style="color:red; font-weight:bold;">⚠️ VOCÊ CAIU ${levelsLost} NÍVEL(IS)!</span><br>Seus atributos resetaram para a base. Redistribua ${player.freePoints} pontos.`;
-        updateGameUI(); customAlert("Ressurreição 🌟", msg);
-    }
+// ════════════════════════════════════════
+//  MORTE — FIX: bloqueia ações mas não vai negativo
+// ════════════════════════════════════════
+function promptDeath(){
+  player.hp=0; player.isDead=true; saveGame();
+  document.getElementById('death-overlay').classList.add('show');
+}
+function closeDeathOverlay(){ document.getElementById('death-overlay').classList.remove('show'); }
+function revivePlayer(){ closeDeathOverlay(); requirePassword(()=>showModal('modal-revive')); }
+function confirmRevive(opt){
+  closeModal('modal-revive');
+  if(opt==='um')    player.hp=1;
+  else if(opt==='meio') player.hp=Math.max(1,Math.floor(player.maxHp*0.5));
+  else { player.hp=player.maxHp; player.mp=player.maxMp; }
+  player.isDead=false;
+  logAction('hp',player.hp,'Revivido pelo Mestre');
+  updateUI();
+  customAlert("⚕️ Revivido!",`${player.name} retorna ao combate com ${player.hp} HP!`);
+}
 
-    function promptHardReset() {
-        customConfirm("Fechar Jogo?", "Seu jogo atual será apagado permanentemente e você voltará para a tela inicial. Deseja continuar?", () => {
-            localStorage.removeItem('rpg_character'); window.location.href = 'index.html'; 
-        });
-    }
+// ════════════════════════════════════════
+//  MOCHILA
+// ════════════════════════════════════════
+function renderMochila(){
+  let list=document.getElementById('inventory-list'); list.innerHTML='';
+  if(!player.inventory.length){list.innerHTML="<p style='text-align:center;color:#666;padding:20px;'>Mochila vazia.</p>";return;}
+  [...player.inventory].sort((a,b)=>b.equipped-a.equipped).forEach(i=>{
+    let icon=i.type==='atk'?'⚔️':i.type==='def'?'🛡️':i.type==='acc'?'💍':'🧪';
+    let w=i.weight||0;
+    let wShow=(i.equipped&&i.type!=='use')?`<del style="opacity:0.4;">${w}kg</del> <strong>${w/2}kg</strong>`:`${w}kg`;
+    list.innerHTML+=`<div class="list-item ${i.equipped?'equipped':''} ${i.desc?'item-glow':''}" onclick="openItemAction(${i.id})">
+      <div class="item-info">
+        <div class="item-name"><span>${icon} ${i.name}</span><span style="font-size:11px;">${wShow}</span></div>
+        <div class="item-sub">${i.type==='use'?'Consumível':`+${i.value}`}</div>
+      </div></div>`;
+  });
+}
+function openItemAction(id){
+  selectedItem=player.inventory.find(i=>i.id===id); let i=selectedItem;
+  document.getElementById('item-action-title').innerText=(i.equipped?'⭐ ':'')+i.name;
+  let desc=i.type==='use'?'Consumível — efeito ao usar':i.type==='acc'?`Bônus: +${i.value} ${(i.useType||'').toUpperCase()}`:`Poder Bruto: +${i.value}`;
+  document.getElementById('item-action-desc').innerHTML=`${desc}<br>💰 Preço: ${i.price||0}G`;
+  let wi=document.getElementById('item-weight-info'), w=i.weight||0;
+  if(i.type!=='use'){wi.style.display='block';wi.innerHTML=i.equipped?`📦 Equipado: <strong>${w/2}kg</strong> (peso original: ${w}kg — itens equipados pesam metade!)`:`📦 Peso: <strong>${w}kg</strong> → se equipar: <strong>${w/2}kg</strong> (equipado pesa metade)`;}
+  else wi.style.display='none';
+  let le=document.getElementById('item-action-lore');
+  if(i.desc){le.style.display='block';le.innerText=`"${i.desc}"`;}else le.style.display='none';
+  let be=document.getElementById('btn-item-equip');
+  if(i.type==='use'){be.innerText='🧪 Beber / Usar';be.className='btn btn-blue';}
+  else{be.innerText=i.equipped?'↩️ Desequipar':'✅ Equipar';be.className='btn btn-primary';}
+  showModal('modal-item-action');
+}
+function executeItemAction(action){
+  let i=selectedItem; closeModal('modal-item-action');
+  if(action==='drop'){customConfirm("Jogar Fora?",`Descartar "${i.name}"?`,()=>{player.inventory=player.inventory.filter(x=>x.id!==i.id);renderMochila();updateUI();});}
+  else if(action==='equip'){if(i.type==='use')consumePotion(i.id);else{i.equipped=!i.equipped;recalcMaxStats();renderMochila();updateUI();}}
+  else if(action==='sell'){
+    if(!i.price||i.price<=0) return customAlert("Sem Valor","Este item não tem preço base definido.");
+    let m=Math.max(1,Math.floor(i.price*0.75));
+    document.getElementById('sell-slider').max=m; document.getElementById('sell-slider').value=Math.floor(m/2);
+    document.getElementById('sell-price-display').innerText=Math.floor(m/2); showModal('modal-sell');
+  }
+}
+function confirmSell(){
+  let v=parseInt(document.getElementById('sell-slider').value);
+  player.gold+=v; logAction('sell',v,`Vendeu ${selectedItem.name}`);
+  player.inventory=player.inventory.filter(x=>x.id!==selectedItem.id);
+  closeModal('modal-sell'); renderMochila(); updateUI();
+  customAlert("Vendido!",`Mercador pagou 💰${v}G.`);
+}
+function promptEditItem(){
+  closeModal('modal-item-action');
+  requirePassword(()=>{
+    isBuyMode=false; let i=selectedItem;
+    document.getElementById('add-item-title').innerText="Editar Item";
+    document.getElementById('item-type').value=i.type; toggleItemType();
+    document.getElementById('item-name').value=i.name; document.getElementById('item-lore').value=i.desc||'';
+    document.getElementById('item-val').value=i.value; document.getElementById('item-price').value=i.price||0;
+    document.getElementById('item-weight').value=i.weight;
+    if(i.type==='acc'&&i.useType) document.getElementById('item-acc-type').value=i.useType;
+    document.getElementById('btn-save-item').innerText="SALVAR EDIÇÃO"; showModal('modal-add-item');
+  });
+}
 
-    // --- OVERLOAD (Sobrecarga) ---
-    function checkOverloadState() {
-        let curr = getCurrentLoad(); let max = getMaxLoad();
-        let pct = (curr / max) * 100;
-        let newState = 0; // 0=Normal, 1=Leve, 2=Severo
+// ════════════════════════════════════════
+//  ADICIONAR / COMPRAR
+// ════════════════════════════════════════
+function openAddItemModal(mode){
+  isBuyMode=(mode==='buy'); selectedItem=null;
+  document.getElementById('add-item-title').innerText=isBuyMode?'Comprar na Loja':'Achar Item';
+  document.getElementById('btn-save-item').innerText=isBuyMode?'COMPRAR':'ADICIONAR';
+  ['item-name','item-lore','item-val','item-price','item-weight','item-gold-val'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('item-type').value='atk'; toggleItemType(); showModal('modal-add-item');
+}
+function toggleItemType(){
+  let t=document.getElementById('item-type').value;
+  let wN=document.getElementById('wrap-normal-fields'), wG=document.getElementById('wrap-gold-fields');
+  if(t==='gold'){wN.style.display='none';wG.style.display='block';document.getElementById('btn-save-item').innerText='GUARDAR OURO';return;}
+  wN.style.display='block'; wG.style.display='none';
+  document.getElementById('wrap-name').style.display=t==='use'?'none':'block';
+  document.getElementById('item-use-wrap').style.display=t==='use'?'block':'none';
+  document.getElementById('item-acc-wrap').style.display=t==='acc'?'block':'none';
+  let ww=document.getElementById('wrap-weight');
+  if(t==='use'){ww.style.display='none';document.getElementById('item-weight').value=0.5;}else ww.style.display='flex';
+  toggleDurationField();
+}
+function toggleDurationField(){
+  let u=document.getElementById('item-use-type').value;
+  document.getElementById('item-duration').style.display=(u.includes('hot')||u.includes('buff'))?'block':'none';
+}
+function autoGenerateWeight(){
+  let p=parseInt(document.getElementById('item-val').value)||1, t=document.getElementById('item-type').value;
+  document.getElementById('item-weight').value=t==='acc'?Math.max(1,Math.ceil(p/4)):Math.max(1,Math.floor(p*1.2));
+}
+function saveItem(){
+  let t=document.getElementById('item-type').value;
+  if(t==='gold'){
+    let v=parseInt(document.getElementById('item-gold-val').value)||0;
+    if(v<=0) return customAlert("Erro","Informe a quantidade de ouro.");
+    player.gold+=v; logAction('gold',v,`Achou ${v}G`);
+    closeModal('modal-add-item'); updateUI(); return;
+  }
+  let v=parseInt(document.getElementById('item-val').value)||0;
+  let p=parseInt(document.getElementById('item-price').value)||0;
+  let w=parseFloat(document.getElementById('item-weight').value)||0;
+  let uType=null, dur=0, n='';
+  if(t==='use'){
+    uType=document.getElementById('item-use-type').value;
+    let lbl=document.querySelector(`#item-use-type option[value="${uType}"]`).innerText.split(' ').slice(1).join(' ');
+    n=`Poção: ${lbl}`; w=0.5;
+    if(uType.includes('hot')||uType.includes('buff')){dur=parseInt(document.getElementById('item-duration').value)||1;n+=` (${dur} turnos)`;}
+  } else {
+    n=document.getElementById('item-name').value.trim();
+    if(t==='acc') uType=document.getElementById('item-acc-type').value;
+  }
+  let lore=document.getElementById('item-lore').value.trim();
+  if(!n) return customAlert("Erro","Item precisa de um nome.");
+  if(!selectedItem&&isBuyMode){
+    let disc=getCarismaDiscount(), fp=Math.max(1,Math.floor(p*(1-disc/100)));
+    if(p<=0) return customAlert("Erro","Item de loja precisa de preço.");
+    if(player.gold<fp) return customAlert("Sem Ouro",`Custa ${fp}G mas você tem ${player.gold}G.`);
+    player.gold-=fp;
+    if(disc>0) customAlert("🗣️ Carisma!",`Desconto de ${disc}%!<br>Original: ${p}G → Pago: ${fp}G`);
+    p=fp;
+  }
+  let obj={id:selectedItem?selectedItem.id:Date.now(),name:n,desc:lore,type:t,value:v,weight:w,price:p,useType:uType,duration:dur,equipped:selectedItem?selectedItem.equipped:false};
+  if(selectedItem) player.inventory=player.inventory.map(x=>x.id===selectedItem.id?obj:x);
+  else{player.inventory.push(obj);logAction(isBuyMode?'buy':'add',p,`${isBuyMode?'Comprou':'Achou'} ${n}`);}
+  closeModal('modal-add-item'); renderMochila(); recalcMaxStats(); updateUI();
+}
 
-        if (pct >= 110) newState = 2; else if (pct > 100) newState = 1; else newState = 0;
+// ════════════════════════════════════════
+//  POÇÕES E EFEITOS
+// ════════════════════════════════════════
+function openPotionSelector(){
+  if(turnState==='active'&&actionsUsed.pot>=2) return customAlert("Limite","Você já bebeu 2 poções neste turno.");
+  let pots=player.inventory.filter(i=>i.type==='use');
+  let list=document.getElementById('potion-list-popup'); list.innerHTML='';
+  if(!pots.length) list.innerHTML="<p style='text-align:center;color:#666;'>Sem poções.</p>";
+  pots.forEach(p=>{list.innerHTML+=`<div class="list-item"><div class="item-info"><div class="item-name">🧪 ${p.name}</div></div><button class="btn btn-blue" style="width:auto;padding:8px 14px;font-size:12px;" onclick="consumePotion(${p.id});closeModal('modal-potions');">BEBER</button></div>`;});
+  showModal('modal-potions');
+}
+function consumePotion(id){
+  let p=player.inventory.find(i=>i.id===id); if(!p) return;
+  if(turnState==='active') actionsUsed.pot++;
+  let t=p.useType, v=p.value;
+  if(t==='hp_inst')      {player.hp=Math.min(player.maxHp,player.hp+v);logAction('hp',v,'Bebeu Poção HP');}
+  else if(t==='mp_inst') {player.mp=Math.min(player.maxMp,player.mp+v);logAction('mp',v,'Bebeu Poção Mana');}
+  else if(t==='exp')     {player.exp+=v;logAction('exp',v,'Bebeu Poção EXP');}
+  else if(t.includes('hot'))  {player.hots.push({id:Date.now(),target:t.split('_')[0],amount:v,duration:p.duration,name:p.name});}
+  else if(t.includes('buff')) {player.buffs.push({id:Date.now(),type:t.split('_')[1],value:v,duration:p.duration,name:p.name});recalcMaxStats();}
+  player.inventory=player.inventory.filter(i=>i.id!==p.id);
+  renderMochila(); updateUI();
+}
+function openAddEffectModal(){
+  document.getElementById('eff-val').value=''; document.getElementById('eff-dur').value=''; document.getElementById('eff-desc').value='';
+  setEffectMode('pos'); showModal('modal-add-effect');
+}
+function setEffectMode(mode){effMode=mode;document.getElementById('btn-eff-pos').style.opacity=mode==='pos'?'1':'0.5';document.getElementById('btn-eff-neg').style.opacity=mode==='neg'?'1':'0.5';}
+function saveManualEffect(){
+  let stat=document.getElementById('eff-stat').value, val=parseInt(document.getElementById('eff-val').value);
+  let dur=parseInt(document.getElementById('eff-dur').value), desc=document.getElementById('eff-desc').value.trim()||'Efeito';
+  if(isNaN(val)||isNaN(dur)||dur<=0) return customAlert("Erro","Preencha todos os campos.");
+  if(effMode==='neg') val=-val;
+  player.buffs.push({id:Date.now(),type:stat,value:val,duration:dur,name:desc});
+  closeModal('modal-add-effect'); recalcMaxStats(); updateUI();
+}
 
-        if (newState !== currentOverloadState) {
-            clearInterval(overloadInterval);
-            currentOverloadState = newState;
+// ════════════════════════════════════════
+//  FICHA — atributos com popup explicativo
+// ════════════════════════════════════════
+function renderFicha(){
+  document.getElementById('ficha-pers').innerText=player.personality||player.name;
+  document.getElementById('ficha-desc').innerText=`"${player.personalityDesc||player.desc||'Sem descrição.'}"`;
+  document.getElementById('attr-free-points').innerText=player.freePoints;
+  document.getElementById('level-up-banner').style.display=player.freePoints>0?'block':'none';
+  let list=document.getElementById('attributes-list'); list.innerHTML='';
+  for(let s in STAT_NAMES){
+    let sel=pendingStatAllocation===s, pv=sel?player.finalStats[s]+1:player.finalStats[s];
+    let pi='';
+    if(sel&&s==='FOR') pi=`<span style="color:var(--gem-green);font-size:10px;margin-left:6px;">💪→${10+(player.finalStats.FOR+1)*5+getAccVal('kg')+getBuffVal('kg')+(player.level-1)*2}kg</span>`;
+    if(sel&&s==='VIT') pi=`<span style="color:var(--gem-green);font-size:10px;margin-left:6px;">❤️→${20+(player.finalStats.VIT+1)*3+getAccVal('hp')+getBuffVal('hp')+(player.level-1)*2}HP</span>`;
+    if(sel&&s==='INT') pi=`<span style="color:var(--gem-green);font-size:10px;margin-left:6px;">💧→${15+(player.finalStats.INT+1)*2+getAccVal('mp')+getBuffVal('mp')+(player.level-1)}MP</span>`;
+    if(sel&&s==='SOR') pi=`<span style="color:var(--gem-green);font-size:10px;margin-left:6px;">🍀→crít.${Math.max(15,20-(player.finalStats.SOR+1))}+</span>`;
+    let btn=player.freePoints>0?(sel
+      ?`<button class="btn btn-blue" style="width:32px;height:32px;padding:0;border-radius:50%;font-size:13px;" onclick="event.stopPropagation();pendingStatAllocation=null;renderFicha();">✓</button>`
+      :`<button class="btn btn-outline" style="width:32px;height:32px;padding:0;border-radius:50%;font-size:15px;" onclick="event.stopPropagation();pendingStatAllocation='${s}';renderFicha();">+</button>`):'';
+    // Clique na linha = popup explicativo do atributo
+    list.innerHTML+=`<div class="list-item ${sel?'equipped':''}" style="margin-bottom:5px;padding:10px 12px;cursor:pointer;" onclick="showAttrInfo('${s}')">
+      <div><div style="font-weight:bold;font-size:13px;">${ATTR_INFO[s]?ATTR_INFO[s].icon+' ':''} ${STAT_NAMES[s]}${pi}</div></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;font-weight:900;font-family:'Cinzel';${sel?'color:var(--gem-green);':''}">${pv}</span>${btn}
+      </div></div>`;
+  }
+  document.getElementById('btn-confirm-attr').style.display=pendingStatAllocation?'block':'none';
+  let cd=CLASSES_DATA[player.cls]||{};
+  document.getElementById('sk-name').innerText=`🔥 ${cd.skill||player.skill} (${cd.cost||player.cost} Mana)`;
+  document.getElementById('sk-desc').innerText=cd.desc||player.skillDesc||'—';
+  document.getElementById('sk-dano').innerText=player.danoPronto||'—';
+  let s=player.finalStats, m=document.getElementById('mecanicas-list'); m.innerHTML='';
+  [{icon:'⚔️',name:'Bônus de Ataque',val:`+${s.FOR} (Força)`,desc:'Somado ao dado em ataques físicos'},
+   {icon:'🛡️',name:'Bônus de Defesa',val:`Nível ${player.level}`,desc:'Somado ao dado de defesa + armaduras'},
+   {icon:'🍀',name:'Acerto Crítico',  val:`${getCritThreshold()}–20`,desc:`Rol ${getCritThreshold()}+ = CRÍTICO! (SOR: ${s.SOR})`},
+   {icon:'🗣️',name:'Desconto Loja',   val:`${getCarismaDiscount()}%`,desc:`CAR ${s.CAR} → ${getCarismaDiscount()}% de desconto`},
+   {icon:'💪',name:'Carga Máxima',    val:`${getMaxLoad()}kg`,desc:'10 + (FOR×5) + bônus de nível'},
+   {icon:'💧',name:'Mana Base',        val:`${player.maxMp}MP`,desc:'15 + (INT×2) + bônus de nível'},
+  ].forEach(r=>{m.innerHTML+=`<div class="ficha-stat-row"><div><div style="font-weight:bold;font-size:13px;">${r.icon} ${r.name}</div><div style="font-size:11px;color:var(--ink-light);">${r.desc}</div></div><div class="ficha-stat-val" style="font-size:14px;min-width:50px;text-align:right;">${r.val}</div></div>`;});
+  let na=document.getElementById('notes-area'); if(na&&document.activeElement!==na) na.value=player.notes||'';
+}
 
-            document.getElementById('game-carga').classList.remove('severe-overload', 'light-overload');
-            document.getElementById('hp-bar-wrapper').classList.remove('hp-drain-pulse', 'hp-drain-pulse-slow');
-            document.getElementById('inv-overload-hp').style.display = 'none';
+// FIX: popup ao clicar no atributo
+function showAttrInfo(stat){
+  let a=ATTR_INFO[stat]; if(!a) return;
+  document.getElementById('attr-info-title').innerText=`${a.icon} ${STAT_NAMES[stat]}`;
+  document.getElementById('attr-info-msg').innerHTML=a.desc.replace(/\n/g,'<br>');
+  document.getElementById('attr-info-value').innerText=`Valor atual: ${player.finalStats[stat]}`;
+  showModal('modal-attr-info');
+}
 
-            if (newState === 2) {
-                document.getElementById('game-carga').classList.add('severe-overload');
-                document.getElementById('hp-bar-wrapper').classList.add('hp-drain-pulse');
-                document.getElementById('inv-overload-hp').innerHTML = `⚠️ SOBRECARGA SEVERA: Perdendo 1 HP / seg!`;
-                document.getElementById('inv-overload-hp').style.display = 'block';
-                if (player.hp > 0 && !document.body.classList.contains('is-dead')) customAlert("⚠️ ESMAGADO!", "Você passou de 10% do limite de peso!<br>Você <strong>não ataca</strong>, dados limitados a 10, e <strong>perde 1 HP por segundo!</strong>");
-                overloadInterval = setInterval(() => drainHP(1), 1000);
-            } 
-            else if (newState === 1) {
-                document.getElementById('game-carga').classList.add('light-overload');
-                document.getElementById('hp-bar-wrapper').classList.add('hp-drain-pulse-slow');
-                document.getElementById('inv-overload-hp').innerHTML = `⚠️ SOBRECARGA LEVE: Perdendo 1 HP a cada 8 seg!`;
-                document.getElementById('inv-overload-hp').style.display = 'block';
-                if (player.hp > 0 && !document.body.classList.contains('is-dead')) customAlert("⚠️ PESADO DEMAIS", "Você está acima do limite.<br>Você <strong>não ataca</strong>, dados limitados a 10, e <strong>perde 1 HP a cada 8 seg</strong>.");
-                overloadInterval = setInterval(() => drainHP(1), 8000);
-            }
-        }
-        if (newState === 0) document.getElementById('game-carga').style.color = "#e65100";
-    }
+function confirmStatPoint(){
+  if(pendingStatAllocation&&player.freePoints>0){
+    player.finalStats[pendingStatAllocation]++; player.freePoints--;
+    pendingStatAllocation=null; recalcMaxStats(); renderFicha(); updateUI();
+  }
+}
+function saveNotes(){ player.notes=document.getElementById('notes-area').value; saveGame(); }
 
-    function drainHP(amount) {
-        if (player.hp > 0 && !document.body.classList.contains('is-dead')) {
-            player.hp -= amount;
-            document.getElementById('game-hp-text').innerText = `${player.hp}/${player.maxHp}`;
-            document.getElementById('game-hp-bar').style.width = `${(player.hp/player.maxHp)*100}%`;
-            document.getElementById('inv-hp-val').innerText = player.hp;
-            if (player.hp <= player.maxHp * 0.5) document.getElementById('emergency-potion-container').style.display = 'block';
-            localStorage.setItem('rpg_character', JSON.stringify(player)); checkDeath();
-        }
-    }
+// ════════════════════════════════════════
+//  INFO / TOOLTIPS
+// ════════════════════════════════════════
+function showStatInfo(stat){
+  let infos={
+    hp:`❤️ <strong>Vida (HP)</strong><br>Chegou a 0 → você cai inconsciente!<br>Aumentada por <em>Vitalidade</em> (+3/ponto) e por nível (+2/nível).<br><br>Toque aqui para curar ou sofrer dano manualmente.`,
+    mp:`💧 <strong>Mana (MP)</strong><br>Combustível das habilidades especiais.<br>Aumentada por <em>Inteligência</em> (+2/ponto) e por nível.<br><br>Toque aqui para ajustar manualmente.`,
+    carga:`💪 <strong>Carga/Peso</strong><br>Itens <strong>equipados</strong> pesam <strong>metade</strong> do peso original.<br><br>▸ Acima de 100%: −1 HP por turno<br>▸ Acima de 125%: −5 HP por turno e sem ataques<br><br>Aumenta com <em>Força</em> (+5kg por ponto).`
+  };
+  showInfo('Informação',infos[stat]||'');
+}
+function showClassInfo(){
+  let cd=CLASSES_DATA[player.cls]||{};
+  showInfo(`${player.cls} — Nível ${player.level}`,
+    `🔥 <strong>${cd.skill||player.skill}</strong> (${cd.cost||player.cost} Mana)<br><br><em>${cd.desc||player.skillDesc}</em><br><br><strong style="color:var(--gold);">${player.danoPronto}</strong><br><br>🍀 Crítico em: ${getCritThreshold()}–20<br>🗣️ Desconto na loja: ${getCarismaDiscount()}%`);
+}
+function openDetails(t){ if(t==='carga') showStatInfo('carga'); }
 
-    function updateGameUI() {
-        if(player.hp < 0) player.hp = 0; if(player.hp > player.maxHp) player.hp = player.maxHp;
-        if(player.mp < 0) player.mp = 0; if(player.mp > player.maxMp) player.mp = player.maxMp;
-        
-        document.getElementById('game-name').innerText = player.name;
-        document.getElementById('game-class').innerText = `${player.cls}`;
-        document.getElementById('game-level').innerText = `LVL ${player.level}`;
-        
-        document.getElementById('game-hp-text').innerText = `${player.hp}/${player.maxHp}`;
-        document.getElementById('game-hp-bar').style.width = `${(player.hp/player.maxHp)*100}%`;
-        document.getElementById('game-hp-bar').innerText = player.hp;
-        
-        if (player.hp <= player.maxHp * 0.5 && player.hp > 0) document.getElementById('emergency-potion-container').style.display = 'block';
-        else document.getElementById('emergency-potion-container').style.display = 'none';
-
-        document.getElementById('game-mp-text').innerText = `${player.mp}/${player.maxMp}`;
-        document.getElementById('game-mp-bar').style.width = `${(player.mp/player.maxMp)*100}%`;
-        document.getElementById('game-mp-bar').innerText = player.mp;
-
-        let expNext = getExpForNextLevel(player.level);
-        document.getElementById('game-exp-text').innerText = `${player.exp} / ${expNext}`;
-        document.getElementById('game-exp-bar').style.width = `${Math.min(100, (player.exp/expNext)*100)}%`;
-
-        let lvlAtk = (player.level - 1);
-        let lvlDef = (player.level - 1);
-
-        document.getElementById('game-atk').innerText = getEquippedTotal('atk') + getAccBuff('atk') + lvlAtk;
-        document.getElementById('game-def').innerText = getEquippedTotal('def') + getAccBuff('def') + lvlDef;
-        document.getElementById('game-carga').innerText = `${getCurrentLoad()}/${getMaxLoad()}`;
-        document.getElementById('badge-points').style.display = player.freePoints > 0 ? 'flex' : 'none';
-
-        if(player.hp > 0 && player.hp <= player.maxHp * 0.2) document.body.classList.add('taking-damage');
-        else document.body.classList.remove('taking-damage');
-
-        localStorage.setItem('rpg_character', JSON.stringify(player));
-        checkDeath(); checkOverloadState();
-    }
-
-    // --- POP-UPS DETALHES ---
-    function openDetails(type) {
-        let title = ''; let html = '';
-        if(type === 'hp') {
-            title = '❤️ Vida (HP)';
-            html = `<div class="detail-box"><strong>HP Base:</strong> 20<br><strong>Vitalidade (x3):</strong> +${player.finalStats.VIT * 3}<br><strong>Bônus de Nível:</strong> +${(player.level-1)*2}`;
-            let accBuff = getAccBuff('hp'); if(accBuff>0) html += `<br><strong style="color:var(--gold);">Acessórios:</strong> +${accBuff}`;
-            html += `</div><div style="font-size:24px; font-weight:bold; color:var(--gem-red); text-align:center;">HP MÁXIMO: ${player.maxHp}</div>`;
-        } 
-        else if(type === 'mp') {
-            title = '💎 Mana (MP)';
-            html = `<div class="detail-box"><strong>MP Base:</strong> 15<br><strong>Inteligência (x2):</strong> +${player.finalStats.INT * 2}<br><strong>Bônus de Nível:</strong> +${player.level-1}`;
-            let accBuff = getAccBuff('mp'); if(accBuff>0) html += `<br><strong style="color:var(--gold);">Acessórios:</strong> +${accBuff}`;
-            html += `</div><div style="font-size:24px; font-weight:bold; color:var(--gem-blue); text-align:center;">MP MÁXIMO: ${player.maxMp}</div>`;
-        }
-        else if(type === 'atk') {
-            title = '⚔️ Poder de Ataque';
-            let items = player.inventory.filter(i => (i.type === 'atk' || (i.type === 'acc' && i.useType === 'atk')) && i.equipped);
-            html = `<div class="detail-box"><strong>Sua Força:</strong> +${player.finalStats.FOR}<br><strong>Bônus de Nível:</strong> +${player.level-1}</div><h3 style="font-size:15px;">Itens em Uso:</h3>`;
-            if(items.length === 0) html += `<p style="font-style:italic; color:var(--ink-light); text-align:center;">Nenhum item equipado.</p>`;
-            items.forEach(i => html += `<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc; padding:5px 0;"><span>${i.type==='acc'?'💍':'⚔️'} ${i.name}</span><strong>+${i.value}</strong></div>`);
-            html += `<div style="font-size:20px; font-weight:bold; margin-top:15px; color:var(--gem-red); text-align:center;">BÔNUS DE ARMAS: +${getEquippedTotal('atk') + getAccBuff('atk')}</div>`;
-        }
-        else if(type === 'def') {
-            title = '🛡️ Poder de Defesa';
-            let items = player.inventory.filter(i => (i.type === 'def' || (i.type === 'acc' && i.useType === 'def')) && i.equipped);
-            html = `<div class="detail-box"><strong>Bônus de Nível:</strong> +${player.level-1}</div><h3 style="font-size:15px;">Itens em Uso:</h3>`;
-            if(items.length === 0) html += `<p style="font-style:italic; color:var(--ink-light); text-align:center;">Nenhum item equipado.</p>`;
-            items.forEach(i => html += `<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc; padding:5px 0;"><span>${i.type==='acc'?'💍':'🛡️'} ${i.name}</span><strong>+${i.value}</strong></div>`);
-            html += `<div style="font-size:20px; font-weight:bold; margin-top:15px; color:var(--gem-blue); text-align:center;">DEFESA TOTAL: +${getEquippedTotal('def') + getAccBuff('def')}</div>`;
-        }
-        else if(type === 'carga') {
-            title = '⚖️ Capacidade de Carga';
-            html = `<div class="detail-box"><strong>Carga Base:</strong> 10kg<br><strong>Força (x5):</strong> +${player.finalStats.FOR * 5}kg<br><strong>Bônus de Nível:</strong> +${(player.level - 1)*2}kg`;
-            let accBuff = getAccBuff('kg'); if(accBuff>0) html += `<br><strong style="color:var(--gold);">Acessórios:</strong> +${accBuff}kg`;
-            html += `<br><strong style="color:var(--gem-red);">MÁXIMO: ${getMaxLoad()}kg</strong></div>`;
-            html += `<h3 style="font-size:15px;">Itens na Mochila:</h3>`;
-            player.inventory.forEach(i => {
-                let w = (i.equipped && i.type !== 'use') ? Math.ceil(i.weight * 0.66) : i.weight;
-                html += `<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc; padding:5px 0;"><span>${i.name} ${i.equipped && i.type !== 'use' ? '<span style="color:var(--gold);">(Equip)</span>' : ''}</span><strong>${w}kg</strong></div>`;
-            });
-            html += `<div style="font-size:22px; font-weight:bold; margin-top:15px; color:#e65100; text-align:center;">PESO ATUAL: ${getCurrentLoad()}kg</div>`;
-        }
-        else if(type === 'classe') {
-            let cData = CLASSES[player.cls]; title = `Lenda: ${player.cls}`;
-            html = `<div class="detail-box"><strong>🔥 Habilidade: ${cData.skill}</strong><br><br>${cData.desc}</div>`;
-        }
-        else if(type === 'personalidade') {
-            title = `Personalidade`; html = `<div style="font-size: 40px; margin-bottom: 10px; text-align:center;">🎭</div><h3 style="margin-bottom:5px;">${player.personality}</h3><p style="font-style:italic; font-size:15px; text-align:center;">"${player.personalityDesc}"</p>`;
-        }
-        document.getElementById('detail-title').innerText = title; document.getElementById('detail-content').innerHTML = html;
-        openModal('modal-details');
-    }
-
-    // --- COMBATE ---
-    function resetDiceArea() {
-        document.getElementById('dice-actions').style.display = 'none'; document.getElementById('btn-skill').style.display = 'none';
-        let dEl = document.getElementById('main-dice-result'); dEl.innerText = "20"; dEl.classList.remove('spin');
-    }
-
-    function tryRoll() {
-        let d = Math.floor(Math.random() * 20) + 1;
-        if (currentOverloadState > 0 && d > 10) {
-            setTimeout(() => customAlert("Exausto! 🥵", `O dado rolou <strong>${d}</strong>.<br><br>Por estar carregando peso além do limite, você não tem energia. O máximo que atinge é 10.<br><br><strong>Ação Falhou. Gire novamente!</strong>`), 600);
-            return null; 
-        }
-        return d;
-    }
-
-    function spinDiceAnim(elId, value) {
-        let el = document.getElementById(elId); el.innerText = value;
-        el.classList.remove('spin'); void el.offsetWidth; el.classList.add('spin');
-    }
-
-    function rollMainDice() {
-        let d = tryRoll(); if (d === null) { spinDiceAnim('main-dice-result', "❌"); document.getElementById('dice-actions').style.display = 'none'; document.getElementById('btn-skill').style.display = 'none'; return; }
-        spinDiceAnim('main-dice-result', d);
-        document.getElementById('dice-actions').style.display = 'flex'; document.getElementById('btn-skill').style.display = 'block';
-    }
-
-    let currentTotalDef = 0;
-    function actionDef() {
-        let d = tryRoll(); if(d === null) { spinDiceAnim('combat-dice', "❌"); return; }
-        let eqDef = getEquippedTotal('def') + getAccBuff('def'); let lvlDef = (player.level - 1); currentTotalDef = d + eqDef + lvlDef;
-        document.getElementById('combat-title').innerText = "🛡️ DEFESA"; spinDiceAnim('combat-dice', d);
-        document.getElementById('combat-result-text').innerHTML = `Bônus (Equip+Nível): <strong>+${eqDef + lvlDef}</strong><br><span style="font-size:22px; color:var(--gem-blue); display:block; margin-top:10px;">DEFESA TOTAL: ${currentTotalDef}</span>`;
-        document.getElementById('combat-extra-actions').innerHTML = `<button class="btn btn-red mt-15" onclick="openEnemyAtkModal()">INIMIGO ATACOU</button>`;
-        openModal('modal-combat');
-    }
-
-    function openEnemyAtkModal() {
-        closeModal('modal-combat'); document.getElementById('enemy-atk-desc').innerText = `Sua Defesa Total: ${currentTotalDef}`;
-        document.getElementById('input-enemy-dmg').value = ''; openModal('modal-enemy-atk');
-        setTimeout(() => document.getElementById('input-enemy-dmg').focus(), 100);
-    }
-
-    function calcEnemyDmg() {
-        let dmg = parseInt(document.getElementById('input-enemy-dmg').value);
-        if (isNaN(dmg) || dmg <= 0) return customAlert("Erro", "Digite um valor válido.");
-        closeModal('modal-enemy-atk'); let danoReal = dmg - currentTotalDef;
-        
-        if (danoReal <= 0) customAlert("🛡️ BLOQUEIO PERFEITO!", `O ataque de ${dmg} não superou sua defesa de ${currentTotalDef}.<br><br><strong>Você não tomou dano.</strong>`);
-        else {
-            player.hp -= danoReal; document.body.classList.add('taking-damage');
-            setTimeout(() => document.body.classList.remove('taking-damage'), 300); updateGameUI();
-            if(player.hp > 0) customAlert("💔 GOLPE RECEBIDO!", `O ataque furou sua defesa de ${currentTotalDef}.<br><br><span style="color:red; font-weight:bold; font-size:18px;">Você tomou ${danoReal} de dano no HP.</span>`);
-        }
-    }
-
-    function actionAtk() {
-        if(currentOverloadState > 0) return customAlert("⚠️ EXAUSTÃO", "Você está acima do seu limite de carga!<br><br><strong>Você não consegue atacar.</strong> Descarte itens ou tome uma poção.");
-
-        let eqAtk = getEquippedTotal('atk') + getAccBuff('atk'); let forcaBase = player.finalStats.FOR; let lvlAtk = (player.level - 1);
-        
-        if(player.cls === "Mago" && eqAtk > 0) {
-            let manaCost = eqAtk * 3;
-            if(player.mp < manaCost) return customAlert("Faltou Mana! 🔮", `Para atacar com arma mágica de ATK +${eqAtk}, o Mago precisa de <strong>${manaCost} MP</strong>.<br>Você tem ${player.mp} MP.`);
-            player.mp -= manaCost; updateGameUI();
-        }
-
-        let d = tryRoll(); if(d === null) { spinDiceAnim('combat-dice', "❌"); return; }
-        
-        let total = d + forcaBase + eqAtk + lvlAtk; document.getElementById('combat-title').innerText = "⚔️ ATAQUE"; spinDiceAnim('combat-dice', d);
-        let magoTxt = (player.cls === "Mago" && eqAtk > 0) ? `<br><span style="color:var(--gem-blue); font-size:12px;">(-${eqAtk * 3} MP gasto)</span>` : '';
-        document.getElementById('combat-result-text').innerHTML = `Tributo/Nível: <strong>+${forcaBase + lvlAtk}</strong><br>Armas/Buffs: <strong>+${eqAtk}</strong>${magoTxt}<br><span style="font-size:22px; color:var(--gem-red); display:block; margin-top:10px;">DANO TOTAL: ${total}</span>`;
-        document.getElementById('combat-extra-actions').innerHTML = ''; openModal('modal-combat');
-    }
-
-    function actionSkill() {
-        if(currentOverloadState > 0) return customAlert("⚠️ EXAUSTÃO", "Você está acima do seu limite de carga!<br><br><strong>Você não tem energia para usar habilidades.</strong>");
-
-        let cData = CLASSES[player.cls]; let cost = cData.cost;
-        if(cData.costType === 'hp') {
-            if(player.hp <= cost) return customAlert("HP Insuficiente ❤️", `Você precisa de mais de ${cost} HP para sacrificar!`);
-            player.hp -= cost;
-        } else {
-            if(player.mp < cost) return customAlert("Mana Insuficiente 💎", `A habilidade custa ${cost} MP. Você tem ${player.mp}.`);
-            player.mp -= cost;
-        }
-        updateGameUI();
-
-        let d = tryRoll(); if(d === null) { spinDiceAnim('combat-dice', "❌"); return; }
-        document.getElementById('combat-title').innerText = "🔥 HABILIDADE"; spinDiceAnim('combat-dice', d);
-
-        let sHtml = '';
-        switch(player.cls) {
-            case 'Guerreiro': sHtml = `Dado + 5<br><span style="font-size:22px; color:var(--gem-red);">DANO FINAL: ${d + 5}</span>`; break;
-            case 'Arqueiro': sHtml = `Dado + 3<br><span style="font-size:20px; color:var(--gem-red);">DANO: ${d + 3} (Em TODOS Inimigos)</span>`; break;
-            case 'Mago': sHtml = `Dado + 10<br><span style="font-size:22px; color:var(--gem-blue);">DANO MÁGICO: ${d + 10}</span>`; break;
-            case 'Assassino': sHtml = `(Dado + ATK) x 3<br><span style="font-size:20px; color:var(--gem-red);">DANO: ${(d + player.finalStats.FOR + (player.level - 1) + getEquippedTotal('atk') + getAccBuff('atk')) * 3} + Veneno!</span>`; break;
-            case 'Necromante': sHtml = `<span style="color:purple; font-weight:bold;">Aponte para um aliado caído.<br>Ele revive com metade do HP!</span>`; break;
-            case 'Druida': sHtml = `<span style="color:green; font-weight:bold;">FORMA FERA!<br>Você tem +2 em ATK e DEF por 2 rodadas.</span>`; break;
-            case 'Soldado': sHtml = `<span style="color:var(--gold); font-weight:bold;">FALANGE!<br>Avise seus aliados: Ganharam +2 DEF nesta rodada.</span>`; break;
-            case 'Bardo': sHtml = `<span style="color:var(--gem-blue); font-weight:bold;">CANÇÃO!<br>Avise a equipe: Todos ganharam +2 ATK nesta rodada.</span>`; break;
-        }
-        document.getElementById('combat-result-text').innerHTML = `<strong style="color:var(--gem-red);">${cData.skill}</strong><hr style="border: 1px dashed rgba(0,0,0,0.1); margin:10px 0;">${sHtml}`;
-        document.getElementById('combat-extra-actions').innerHTML = ''; openModal('modal-combat');
-    }
-
-    function applyDirectDamage() {
-        let val = parseInt(document.getElementById('input-direct-dmg').value);
-        if(!isNaN(val) && val > 0) {
-            player.hp -= val; document.body.classList.add('taking-damage');
-            setTimeout(() => document.body.classList.remove('taking-damage'), 300);
-            updateGameUI(); closeModal('modal-damage'); document.getElementById('input-direct-dmg').value = '';
-        }
-    }
-
-    // --- INVENTÁRIO ---
-    function renderInventory() {
-        let list = document.getElementById('inventory-list'); list.innerHTML = '';
-        let atkC = 0; let defC = 0; let accC = 0;
-        let sorted = [...player.inventory].sort((a,b) => b.equipped - a.equipped);
-        
-        if(sorted.length === 0) list.innerHTML = `<div class="text-center" style="padding: 20px; color: var(--ink-light); font-style:italic;">Mochila vazia.</div>`;
-
-        sorted.forEach(i => {
-            if(i.equipped && i.type === 'atk') atkC++;
-            if(i.equipped && i.type === 'def') defC++;
-            if(i.equipped && i.type === 'acc') accC++;
-            
-            let icon = i.type === 'atk' ? '⚔️' : i.type === 'def' ? '🛡️' : (i.type === 'acc' ? '💍' : '🧪');
-            let txt = i.type === 'use' ? `Cura +${i.value} ${i.useType.toUpperCase()}` : 
-                      (i.type === 'acc' ? `Bônus: +${i.value} ${i.useType.toUpperCase()}` : `Poder: +${i.value}`);
-            
-            let weightHtml = `⚖️ ${i.weight}kg`;
-            if (i.equipped && i.type !== 'use') {
-                let currentW = Math.ceil(i.weight * 0.66);
-                weightHtml = `⚖️ <span style="text-decoration:line-through; color:#999; font-size:10px;">${i.weight}kg</span> <strong style="color:var(--gold);">${currentW}kg</strong>`;
-            }
-            
-            let btn = '';
-            if (i.type === 'use') {
-                btn = `<button class="btn btn-blue btn-small" style="padding: 6px 10px;" onclick="promptPotion(${i.id})">BEBER</button>`;
-            } else {
-                btn = `<button class="btn ${i.equipped ? 'btn-gold' : 'btn-outline'} btn-small" style="padding: 6px 10px;" onclick="toggleEq(${i.id})">${i.equipped ? 'DESEQUIPAR' : 'EQUIPAR'}</button>`;
-            }
-
-            list.innerHTML += `
-                <div class="list-item ${i.equipped ? 'equipped':''}">
-                    <div class="item-info">
-                        <span class="item-name">${icon} ${i.name}</span>
-                        <span class="item-val">${txt} | ${weightHtml}</span>
-                    </div>
-                    <div style="display:flex; gap:6px; align-items:center;">
-                        ${btn}
-                        <button style="background:none; border:none; color:var(--gem-red); font-size:24px; font-weight:bold; cursor:pointer;" onclick="delItem(${i.id})">×</button>
-                    </div>
-                </div>`;
-        });
-        document.getElementById('inv-atk-count').innerText = atkC; 
-        document.getElementById('inv-def-count').innerText = defC;
-        document.getElementById('inv-acc-count').innerText = accC;
-    }
-
-    function toggleItemType() {
-        let type = document.getElementById('item-type').value;
-        document.getElementById('item-use-wrap').style.display = type === 'use' ? 'block' : 'none';
-        document.getElementById('item-acc-wrap').style.display = type === 'acc' ? 'block' : 'none';
-        updateWeightBarUI();
-    }
-
-    function openAddItemModal() {
-        document.getElementById('item-name').value = ''; document.getElementById('item-val').value = '';
-        document.getElementById('item-weight').value = ''; updateWeightBarUI();
-        openModal('modal-add-item');
-    }
-
-    function autoGenerateWeight() {
-        let type = document.getElementById('item-type').value;
-        let power = parseInt(document.getElementById('item-val').value) || 1;
-        let w = 1;
-        
-        if (type === 'use') w = Math.max(1, Math.ceil(power / 2) + Math.floor(Math.random() * 2));
-        else if (type === 'acc') w = Math.max(1, Math.ceil(power / 3) + Math.floor(Math.random() * 2));
-        else w = Math.max(1, Math.floor(power * 1.2) + Math.floor(Math.random() * 3));
-        
-        document.getElementById('item-weight').value = w; updateWeightBarUI();
-    }
-
-    function updateAutoWeightWarning() { updateWeightBarUI(); }
-
-    function updateWeightBarUI() {
-        let w = parseInt(document.getElementById('item-weight').value) || 0;
-        let bar = document.getElementById('weight-indicator-bar');
-        
-        let pct = Math.min(100, (w / 20) * 100);
-        bar.style.width = `${pct}%`; 
-        
-        if (w <= 5) bar.style.background = 'linear-gradient(90deg, #8bc34a, #388e3c)'; // Verde
-        else if (w <= 9) bar.style.background = 'linear-gradient(90deg, #ffca28, #f57f17)'; // Amarelo
-        else if (w <= 12) bar.style.background = 'linear-gradient(90deg, #ce93d8, #ab47bc)'; // Roxo Claro
-        else if (w <= 15) bar.style.background = 'linear-gradient(90deg, #8e24aa, #6a1b9a)'; // Roxo Escuro
-        else if (w <= 18) bar.style.background = 'linear-gradient(90deg, #4a148c, #21004a)'; // Quase Preto
-        else bar.style.background = '#0d0d0d'; // Preto absoluto
-    }
-
-    function saveItem() {
-        let name = document.getElementById('item-name').value.trim();
-        let type = document.getElementById('item-type').value;
-        let val = parseInt(document.getElementById('item-val').value) || 0;
-        let w = parseInt(document.getElementById('item-weight').value) || 0;
-        
-        if(!name) return customAlert("Sem Nome", "Você não pode criar um item invisível! Dê um nome a ele.");
-        if(val <= 0 || w <= 0) return customAlert("Valores", "O Poder/Cura e o Peso devem ser maiores que 0.");
-        
-        let maxLoad = getMaxLoad(); let currLoad = getCurrentLoad();
-        
-        if (currLoad > maxLoad) {
-            return customAlert("Mochila Quebrada 🎒", `Sua mochila já ultrapassou o limite (${currLoad}kg / ${maxLoad}kg).<br><br>Você precisa soltar ou consumir peso antes de pegar novos itens.`);
-        }
-
-        let useType = null;
-        if(type === 'use') useType = document.getElementById('item-use-type').value;
-        if(type === 'acc') useType = document.getElementById('item-acc-type').value;
-
-        player.inventory.push({ id: Date.now(), name: name, type: type, value: val, weight: w, useType: useType, equipped: false });
-        closeModal('modal-add-item'); renderInventory(); updateGameUI();
-    }
-    
-    function delItem(id) { 
-        customConfirm("Descartar Item", "Deseja jogar este item fora permanentemente?<br>O peso dele será liberado.", () => {
-            player.inventory = player.inventory.filter(i=>i.id!==id); renderInventory(); updateGameUI(); 
-        });
-    }
-    
-    function toggleEq(id) {
-        let item = player.inventory.find(i=>i.id===id);
-        if(!item.equipped) {
-            let limit = item.type === 'acc' ? 2 : 2;
-            let typeName = item.type === 'atk' ? 'Ataque' : (item.type === 'def' ? 'Defesa' : 'Acessórios');
-            let count = player.inventory.filter(i => i.type===item.type && i.equipped).length;
-            if(count >= limit) return customAlert("Limite em Uso", `Você já tem ${limit} itens de ${typeName} equipados no corpo.`);
-        }
-        item.equipped = !item.equipped;
-        recalcMaxStats(); 
-        renderInventory(); updateGameUI();
-    }
-
-    // --- POÇÕES ---
-    let potionToUse = null;
-    function useEmergencyPotion() {
-        let hpPotion = player.inventory.find(i => i.type === 'use' && i.useType === 'hp');
-        if(hpPotion) promptPotion(hpPotion.id);
-        else customAlert("Lamentável...", "Você está sangrando, quase morrendo... e <strong>não tem nenhuma poção de HP!</strong><br>Reze aos Deuses.");
-    }
-
-    function openPotionSelector() {
-        let pots = player.inventory.filter(i => i.type === 'use');
-        if(pots.length === 0) return customAlert("Mochila Vazia", "Você não tem poções consumíveis.");
-        let list = document.getElementById('potion-list-popup'); list.innerHTML = '';
-        pots.forEach(p => {
-            list.innerHTML += `<div class="list-item" style="box-shadow:none; border:1px solid rgba(0,0,0,0.1);"><div class="item-info"><span class="item-name">🧪 ${p.name}</span><span class="item-val">+${p.value} ${p.useType.toUpperCase()} | ⚖️ ${p.weight}kg</span></div><button class="btn btn-blue btn-small" onclick="promptPotion(${p.id})">BEBER</button></div>`;
-        });
-        openModal('modal-potions');
-    }
-
-    function promptPotion(id) {
-        potionToUse = player.inventory.find(i=>i.id===id); closeModal('modal-potions');
-        let curr = potionToUse.useType === 'hp' ? player.hp : player.mp;
-        let max = potionToUse.useType === 'hp' ? player.maxHp : player.maxMp;
-        let after = Math.min(max, curr + potionToUse.value);
-        
-        customConfirm("Beber Poção?", `Beber <strong>${potionToUse.name}</strong>?<br><br>Seu ${potionToUse.useType.toUpperCase()} vai de:<br><span style="font-size:20px; font-weight:bold;">${curr} ➔ <span style="color:var(--gem-blue);">${after}</span></span><br><br><span style="font-size:12px;">Isso alivia ${potionToUse.weight}kg de peso.</span>`, () => {
-            if(potionToUse.useType === 'hp') player.hp = after; else player.mp = after;
-            player.inventory = player.inventory.filter(i => i.id !== potionToUse.id);
-            potionToUse = null; updateGameUI();
-            if(document.getElementById('screen-inventory').classList.contains('active')) renderInventory();
-        });
-    }
-
-    // --- EXP E NÍVEL ---
-    function addExp() {
-        let val = parseInt(document.getElementById('input-exp').value);
-        if(isNaN(val) || val <= 0) return;
-        player.exp += val; let leveledUp = false;
-
-        while(player.exp >= getExpForNextLevel(player.level)) {
-            player.exp -= getExpForNextLevel(player.level);
-            player.level++; player.freePoints++; recalcMaxStats();
-            player.hp = player.maxHp; player.mp = player.maxMp; leveledUp = true;
-        }
-        closeModal('modal-exp'); document.getElementById('input-exp').value = ''; updateGameUI();
-        if(leveledUp) customAlert("🎉 NÍVEL UP!", `Você alcançou o <strong>Nível ${player.level}</strong>!<br><br>HP e MP restaurados! Você ganhou 1 Ponto na aba Atributos!`);
-    }
-
-    // --- TRIBUTOS ---
-    let pendingStatAllocation = null;
-    function renderAttributes() {
-        document.getElementById('level-up-banner').style.display = player.freePoints > 0 ? 'block' : 'none';
-        document.getElementById('attr-free-points').innerText = player.freePoints;
-        let list = document.getElementById('attributes-list'); list.innerHTML = '';
-        
-        for(let s in STAT_NAMES) {
-            let finalVal = player.finalStats[s];
-            let isSelected = pendingStatAllocation === s;
-            let btn = player.freePoints > 0 ? (isSelected ? `<button class="btn-gem-attr" style="background:var(--gem-blue); color:white; border-color:var(--gem-blue);">✓</button>` : `<button class="btn-gem-attr" onclick="selectStatPoint('${s}')">+</button>`) : '';
-            list.innerHTML += `
-            <div class="list-item ${isSelected ? 'selected' : ''}" style="margin-bottom:5px;">
-                <span class="item-name stat-clickable" onclick="openAttrInfo('${s}')">${STAT_NAMES[s]}</span>
-                <div style="display:flex; align-items:center; gap:15px;">
-                    <span style="font-size:20px; font-weight:bold; font-family:'Cinzel'; ${isSelected ? 'color:var(--gem-blue);' : ''}">${isSelected ? finalVal + 1 : finalVal}</span>
-                    ${btn}
-                </div>
-            </div>`;
-        }
-        document.getElementById('btn-confirm-attr').style.display = pendingStatAllocation ? 'flex' : 'none';
-    }
-
-    function selectStatPoint(stat) { pendingStatAllocation = stat; renderAttributes(); }
-    function confirmStatPoint() {
-        if(pendingStatAllocation && player.freePoints > 0) {
-            player.finalStats[pendingStatAllocation]++; player.freePoints--; pendingStatAllocation = null;
-            recalcMaxStats(); renderAttributes(); updateGameUI();
-        }
-    }
-    
-    function openAttrInfo(stat) {
-        document.getElementById('detail-title').innerText = `Detalhes: ${STAT_NAMES[stat]}`;
-        document.getElementById('detail-content').innerHTML = `
-            <div class="detail-box"><strong>O que faz:</strong><br>${ATTRIBUTE_HELP[stat].desc}</div>
-            <div class="combat-result-box" style="margin-top:15px; background:rgba(212,175,55,0.1); border-color:var(--gold);">
-                ${ATTRIBUTE_HELP[stat].fn(player.finalStats[stat])}
-            </div>
-        `;
-        openModal('modal-details');
-    }
-
-    // --- AJUDA ---
-    function generateHelp() {
-        let h = `<strong style="font-size:16px;">🎲 COMBATE E RESSURREIÇÃO</strong><br>
-        1. Role o D20 e escolha ATK ou DEF.<br>2. Se morrer, apenas um aliado com poder de curar/reviver (ex: <strong>Necromante</strong>) pode te trazer de volta. Reviver custa EXP e corta atributos.<br><br>
-        <strong style="font-size:16px;">🎒 CARGA E ACESSÓRIOS</strong><br>
-        - Seu limite de peso aumenta com a Força. Passar o limite bloqueia ataques. Passar de 10% além disso começa a tirar vida de exaustão!<br>
-        - <strong>Acessórios (Max 2):</strong> Podem dar status bônus permanentes, ou curar HP/MP automaticamente a cada 10s.<br><br>`;
-        if(player.cls === "Mago") h += `<div style="background:rgba(25,118,210,0.1); padding:10px; border-left:4px solid var(--gem-blue); margin-bottom:15px;"><strong style="color:var(--gem-blue);">🧙 REGRA DO MAGO:</strong><br>Ataques normais gastam MP = (Poder da Arma x 3).</div>`;
-        let cData = CLASSES[player.cls];
-        if(cData) h += `<strong>🔥 HABILIDADE (${cData.skill})</strong><br>${cData.desc}<br><br>`;
-        h += `<strong>💡 DICAS DE UI</strong><br>- Aperte <kbd>Enter</kbd> no teclado para confirmar.<br>- Textos sublinhados mostram cálculos ocultos.`;
-        
-        document.getElementById('help-content').innerHTML = h; openModal('modal-help');
-    }
-
-    window.onload = init;
+// ════════════════════════════════════════
+//  MESTRE / HISTÓRICO / EXPORT
+// ════════════════════════════════════════
+function openMestreMenu(){ showModal('modal-mestre'); }
+function requirePassword(cb){ pwdCallback=cb; document.getElementById('input-pwd').value=''; showModal('modal-password'); }
+function verifyPassword(){
+  if(document.getElementById('input-pwd').value.toLowerCase()==='guitarra'){ closeModal('modal-password'); if(pwdCallback) pwdCallback(); }
+  else customAlert("Acesso Negado","Senha incorreta.");
+}
+function logAction(type,delta,desc,revertible=true){
+  let ts=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  player.history.unshift({id:Date.now(),type,delta,desc,ts,revertible});
+  if(player.history.length>25) player.history.pop();
+}
+function openHistory(){
+  closeModal('modal-mestre');
+  let list=document.getElementById('history-list'); list.innerHTML='';
+  if(!player.history.length) list.innerHTML="<p style='text-align:center;color:#666;'>Nenhuma ação registrada.</p>";
+  player.history.forEach(h=>{
+    let d=h.delta>0?`+${h.delta}`:h.delta<0?`${h.delta}`:'—';
+    let rb=h.revertible?`<button class="btn-revert" onclick="promptRevert(${h.id})">Desfazer</button>`:'';
+    list.innerHTML+=`<div class="history-item"><div><strong>${h.ts}</strong> — ${h.desc} <span style="color:#888;">(${d})</span></div>${rb}</div>`;
+  });
+  showModal('modal-history');
+}
+function promptRevert(id){
+  closeModal('modal-history');
+  requirePassword(()=>{
+    let h=player.history.find(x=>x.id===id); if(!h) return;
+    if(h.type==='hp'){let n=player.hp-h.delta;if(n<=0){player.hp=1;customAlert("⚠️ Proteção","Desfazer causaria morte. HP travado em 1.");}else player.hp=Math.min(player.maxHp,n);}
+    else if(h.type==='mp')   player.mp=Math.max(0,player.mp-h.delta);
+    else if(h.type==='exp')  player.exp=Math.max(0,player.exp-h.delta);
+    else if(h.type==='gold') player.gold=Math.max(0,player.gold-h.delta);
+    else if(h.type==='add'||h.type==='buy'){if(h.type==='buy')player.gold+=h.delta;customAlert("Aviso","Para remover o item, exclua-o manualmente na mochila.");}
+    else if(h.type==='sell'){player.gold=Math.max(0,player.gold-h.delta);customAlert("Aviso","Ouro removido. Recrie o item se necessário.");}
+    player.history=player.history.filter(x=>x.id!==id); updateUI();
+    // FIX: se ao desfazer o hp voltou pra algo positivo, remove o isDead
+    if(player.hp>0 && player.isDead){ player.isDead=false; document.getElementById('death-overlay').classList.remove('show'); }
+  });
+}
+function exportSave(){
+  closeModal('modal-mestre');
+  let code=btoa(encodeURIComponent(JSON.stringify(player)));
+  navigator.clipboard.writeText(code).then(()=>customAlert("✅ Exportado!","Código copiado! Cole no WhatsApp para guardar.")).catch(()=>prompt("Copie o código:",code));
+}
+function importSave(){
+  closeModal('modal-mestre');
+  let code=prompt("Cole o Código do Personagem:");
+  if(code){try{let p=JSON.parse(decodeURIComponent(atob(code.trim())));if(p.name){player={...player,...p};saveGame();recalcMaxStats();updateUI();switchTab('combate');customAlert("✅ Ficha Importada!","Personagem restaurado.");}}catch(e){customAlert("Erro","Código inválido ou corrompido.");}}
+}
+function resetData(){
+  closeModal('modal-mestre');
+  customConfirm("💀 Morte Definitiva","Apagar este personagem PARA SEMPRE?",()=>{requirePassword(()=>{localStorage.removeItem('rpg_character');location.reload();});});
+}
+window.onload=init;
 </script>
 </body>
 </html>

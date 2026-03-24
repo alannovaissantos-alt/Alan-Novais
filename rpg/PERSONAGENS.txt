@@ -1,9 +1,12 @@
+HABILIDADES:
+
+
 1. Guerreiro
 Bom em: Tankar dano, bloquear ataques físicos e carregar muito peso.
 
 Ruim em: Lidar com magias (costuma tomar dano cheio de feitiços) e persuasão.
 
-Habilidade Especial: Fúria Inabalável - Por um turno, o guerreiro ignora a dor, cortando todo o dano físico recebido pela metade e atraindo a atenção de todos os inimigos próximos para si.
+Habilidade Especial (15 MP): Fúria Inabalável - Por um turno, o guerreiro ignora a dor, cortando todo o dano físico recebido pela metade e atraindo a atenção de todos os inimigos próximos para si.
 
 Modificadores: Força (+2), Vitalidade (+1), Inteligência (-2), Carisma (-1).
 
