@@ -12,9 +12,13 @@
 <div id="death-overlay">
   <div style="font-size:70px;margin-bottom:10px;">💀</div>
   <h2 style="font-family:'Cinzel';font-size:26px;color:var(--gold);margin:0 0 10px;">CAIU EM COMBATE</h2>
-  <p style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:25px;line-height:1.8;">Seu HP chegou a 0.<br>Peça ao Mestre para reviver ou use uma poção.</p>
-  <button class="btn btn-gold" style="max-width:260px;" onclick="revivePlayer()">⚕️ REVIVER (Mestre)</button>
-  <button class="btn btn-outline" style="max-width:260px;color:white;border-color:rgba(255,255,255,0.4);margin-top:10px;" onclick="closeDeathOverlay()">📜 Ver Ficha (Inconsciente)</button>
+  <p style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:25px;line-height:1.8;">Seu HP chegou a 0.<br>O seu destino agora está nas mãos do grupo.</p>
+  <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:260px;">
+    <button class="btn btn-gold" onclick="revivePlayer()">⚕️ REVIVER (Mestre)</button>
+    <button class="btn btn-blue" onclick="useRevivePotion()">🧪 POÇÃO DE RESSUSCITAR</button>
+    <button class="btn btn-outline" style="color:white;border-color:rgba(255,255,255,0.4);" onclick="exportLastState()">💾 EXPORTAR ÚLTIMO ESTADO</button>
+    <button class="btn btn-red" onclick="endGameDeath()">🛑 ENCERRAR PARTIDA</button>
+  </div>
 </div>
 
 <div class="app-container" id="app">
@@ -92,9 +96,7 @@
     </div>
     <h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin:15px 0 8px;">Mecânicas</h3>
     <div id="mecanicas-list"></div>
-    <h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin:15px 0 5px;">📝 Anotações</h3>
-    <textarea id="notes-area" placeholder="Escreva aqui suas anotações, objetivos, segredos..." oninput="saveNotes()"></textarea>
-  </div>
+    </div>
 
   <!-- ===== TAB COMBATE ===== -->
   <div id="tab-combate" class="tab-content active">
@@ -136,9 +138,8 @@
     <div class="dice-area">
       <button class="btn btn-outline" style="position:absolute;top:8px;right:8px;width:auto;padding:5px 10px;font-size:10px;" onclick="rollFreeDice()">🎲 D20</button>
       <!-- FIX: dado volta pra 🎲 ao trocar de aba/turno. Detalhe AGI embaixo -->
-      <div class="dice-number" id="main-dice">🎲</div>
-      <div id="free-dice-detail"></div>
-      <div style="font-size:12px;font-weight:bold;color:var(--ink-light);margin:0 0 8px;line-height:1.6;" id="combat-log-main">Aguardando ação...</div>
+      <div class="dice-number" id="main-dice">🎲</div><div id="free-dice-detail"></div>
+      <div id="combat-log-main">Aguardando ação...</div>
       <button class="btn btn-red" id="btn-atk" onclick="actionAtk()" disabled>
         ⚔️ ATACAR <span style="font-size:10px;background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:8px;margin-left:5px;" id="count-atk">0/1</span>
       </button>
@@ -165,12 +166,31 @@
     <div id="inventory-list"></div>
   </div>
 
+  <div id="tab-diario" class="tab-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+      <h2 style="font-family:'Cinzel';margin:0;font-size:22px;color:var(--ink);">📖 Diário</h2>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:11px;" onclick="openNoteSearch()">🔍 Buscar</button>
+        <button class="btn btn-primary" style="width:auto;padding:6px 12px;font-size:11px;" onclick="openNoteModal(null)">+ Nova</button>
+      </div>
+    </div>
+    <div id="note-search-wrap" style="display:none;margin-bottom:12px;">
+      <input type="text" id="note-search-input" placeholder="Buscar no diário..." oninput="renderNotesList()" style="margin:0;">
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center;">
+      <span style="font-size:11px;color:var(--ink-light);font-weight:bold;">Ordem:</span>
+      <button class="btn-filter active" id="sort-newest" onclick="setNoteSort('newest')">Mais recentes</button>
+      <button class="btn-filter" id="sort-oldest" onclick="setNoteSort('oldest')">Mais antigas</button>
+    </div>
+    <div id="notes-list"></div>
+  </div>
+
   <div class="bottom-nav">
     <div class="nav-item" id="nav-ficha" onclick="switchTab('ficha')"><span class="nav-icon">📊</span> Ficha</div>
     <div class="nav-item active" id="nav-combate" onclick="switchTab('combate')"><span class="nav-icon">⚔️</span> Combate</div>
     <div class="nav-item" id="nav-mochila" onclick="switchTab('mochila')"><span class="nav-icon">🎒</span> Mochila</div>
+    <div class="nav-item" id="nav-diario" onclick="switchTab('diario')"><span class="nav-icon">📖</span> Diário</div>
   </div>
-</div>
 
 <!-- ===== MODAIS ===== -->
 <div class="modal-overlay" id="modal-mestre">
@@ -419,6 +439,30 @@
     <button class="modal-close" onclick="closeModal('modal-info')">×</button>
     <h2 class="modal-title" id="info-title">Info</h2>
     <p id="info-msg" style="margin:15px 0;font-size:14px;line-height:1.7;text-align:left;"></p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-note-edit">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-note-edit')">×</button>
+    <h2 class="modal-title" id="note-edit-title">Nova Anotação</h2>
+    <label>Título</label>
+    <input type="text" id="note-input-title" placeholder="Ex: Missão da Taverna, Mapa Secreto...">
+    <label>Anotação</label>
+    <textarea id="note-input-body" placeholder="Escreva aqui..." style="min-height:140px;"></textarea>
+    <button class="btn btn-primary" onclick="saveNote()" style="margin-top:8px;">💾 SALVAR</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-note-view">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-note-view')">×</button>
+    <h2 class="modal-title" id="note-view-title">Anotação</h2>
+    <div id="note-view-body" style="font-size:14px;line-height:1.8;color:var(--ink);white-space:pre-wrap;margin-bottom:15px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-blue" id="note-view-edit-btn">✏️ Editar</button>
+      <button class="btn btn-red" id="note-view-delete-btn">🗑️ Excluir</button>
+    </div>
   </div>
 </div>
 

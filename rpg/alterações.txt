@@ -1,0 +1,986 @@
+# GUIA COMPLETO — PROJETO RPG DE MESA
+# (Para qualquer IA que for trabalhar neste projeto)
+
+---
+
+## LEIA ISTO PRIMEIRO — OBRIGATÓRIO
+
+Você está recebendo este arquivo junto com os arquivos do projeto (`index.html`, `commestre.html`, `mestre.js`, `mestre.css`). Esse documento contém TUDO que você precisa saber sobre o projeto e como trabalhar nele.
+
+**REGRA PRINCIPAL:** Faça UMA SESSÃO por vez. Não pule sessões. Não faça tudo de uma vez.
+
+**Ao terminar cada sessão você DEVE:**
+1. Listar todas as alterações feitas de forma clara
+2. Sugerir como testar cada alteração no browser
+3. Aguardar o usuário dizer "ok" ou reportar algum problema antes de continuar
+
+REGRA ESTRITA DE FORMATAÇÃO DE CÓDIGO (LEIA ANTES DE ESCREVER)
+Você NUNCA deve reescrever o arquivo inteiro. Você deve trabalhar de forma cirúrgica para que o usuário possa usar o "Localizar e Substituir" do Notepad++. Use EXATAMENTE este formato para cada alteração:
+
+```
+ARQUIVO: [nome do arquivo]
+
+ENCONTRE estas linhas (exatas):
+[trecho original do código]
+
+SUBSTITUA por:
+[código novo completo]
+```
+
+Se for uma inserção (não substituição), use:
+```
+ARQUIVO: mestre.js
+
+APÓS esta linha:
+[linha exata após a qual inserir]
+
+INSIRA:
+[código novo]
+```
+
+Se for adicionar ao final do arquivo:
+```
+ARQUIVO: mestre.js
+
+NO FINAL DO ARQUIVO, ADICIONE:
+[código novo]
+```
+
+O usuário usa Notepad++ para editar. Sempre forneça a linha completa e exata para ele localizar com Ctrl+F.
+
+---
+
+## SOBRE O PROJETO
+
+Sistema de RPG de mesa mobile-first. Sem backend, sem framework, sem biblioteca externa.
+
+**Arquivos:**
+- `index.html` — tela de criação de personagem (não alterar, exceto nas sessões que pedem)
+- `commestre.html` — app principal do jogador com 3 abas: Combate, Ficha, Mochila
+- `mestre.js` — toda a lógica do jogo (organizada em blocos comentados `////INÍCIO BLOCO XX////`)
+- `mestre.css` — estilos globais
+
+**Tecnologia:**
+- HTML + CSS + JS puro
+- Persistência via `localStorage` com chave `rpg_character`
+- Fontes Google: Cinzel (títulos) + Merriweather (corpo)
+- Variáveis CSS: `--bg-dark #120d09`, `--parchment #fdfaf0`, `--ink #2c1a12`, `--ink-light #5d4037`, `--gem-red #d32f2f`, `--gem-blue #1976d2`, `--gem-green #388e3c`, `--gold #d4af37`
+
+**Estrutura do objeto `player` (localStorage):**
+```js
+player = {
+  name, cls, personality, personalityDesc, desc,
+  skill, cost, skillDesc, danoPronto,
+  finalStats: { FOR, INT, AGI, VIT, CAR, SOR },
+  level, exp, hp, maxHp, mp, maxMp,
+  freePoints, gold, maxLevelReached,
+  inventory: [], buffs: [], hots: [], history: [],
+  notes: [],   // ATENÇÃO: após Sessão 5 vira array. Antes era string.
+  isDead: false
+}
+```
+
+**Regras que NUNCA podem ser quebradas:**
+- Não alterar lógica de localStorage, sistema de history, buffs/hots, nível/atributos base
+- Não alterar telas do `index.html` além do que as sessões 11 e 12 pedem
+- Manter todos os comentários `////INÍCIO BLOCO XX////` no JS
+- Novas funções vão no bloco temático mais próximo ou em novo bloco comentado no final
+- CSS: adicionar novas regras NO FINAL do arquivo, nunca sobrescrever regras existentes
+- Todo texto de interface em português do Brasil
+- TODA função de jogo deve ter `if(player.isDead) return;` no topo (já a partir da Sessão 1)
+
+---
+
+## SESSÕES DE ALTERAÇÃO
+
+---
+
+### SESSÃO 1 — Bug da Morte + Tela de Morte Redesenhada
+
+**Contexto:** Existe um bug grave onde o jogador consegue jogar estando morto. Ao morrer, a `death-overlay` aparece, mas modais abertos por cima dela (ex: alerta de dano) permitem ao jogador clicar em "OK" e continuar jogando. A tela de morte também tem apenas 2 botões fracos, um dos quais dá acesso ao jogo estando morto.
+
+**O que fazer:**
+
+**PARTE A — Bloquear jogo durante morte:**
+
+1. No início das funções `endTurn()`, `startTurn()`, `actionAtk()`, `actionSkill()`, `openDefModal()`, `applyDefDamage()` e `executeBarAction()` — adicionar como PRIMEIRA linha dentro da função:
+   ```js
+   if (player.isDead) return;
+   ```
+
+2. No CSS (`mestre.css`), garantir que `#death-overlay` tenha:
+   ```css
+   pointer-events: all;
+   ```
+   (já tem `z-index:9999`, só confirmar)
+
+3. A função `promptDeath()` deve fechar todos os modais antes de mostrar a overlay. Substituir a função atual por:
+   ```js
+   function promptDeath() {
+     player.hp = 0; player.isDead = true;
+     lastAliveSnapshot = JSON.parse(JSON.stringify(player));
+     saveGame();
+     // Fechar todos os modais abertos
+     document.querySelectorAll('.modal-overlay').forEach(m => {
+       m.style.opacity = '0';
+       setTimeout(() => { m.style.display = 'none'; m.classList.remove('show'); }, 200);
+     });
+     setTimeout(() => {
+       document.getElementById('death-overlay').classList.add('show');
+     }, 250);
+   }
+   ```
+
+4. Remover a função `closeDeathOverlay()` inteira — não será mais usada.
+
+**PARTE B — Tela de morte com 4 botões:**
+
+Declarar variável global no topo do `mestre.js` (junto das outras variáveis globais no início):
+```js
+let lastAliveSnapshot = null;
+```
+
+Substituir o conteúdo do `<div id="death-overlay">` no `commestre.html` por:
+```html
+<div id="death-overlay">
+  <div style="font-size:70px;margin-bottom:10px;">💀</div>
+  <h2 style="font-family:'Cinzel';font-size:26px;color:var(--gold);margin:0 0 10px;">CAIU EM COMBATE</h2>
+  <p style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:25px;line-height:1.8;">
+    Seu HP chegou a 0.<br>Escolha o que fazer.
+  </p>
+  <button class="btn btn-gold" style="max-width:280px;" onclick="revivePlayer()">
+    ⚕️ REVIVER (Mestre)
+  </button>
+  <button class="btn btn-blue" style="max-width:280px;margin-top:10px;" onclick="useRevivePotion()">
+    🧪 Usar Poção de Ressuscitar
+  </button>
+  <button class="btn btn-outline" style="max-width:280px;color:white;border-color:rgba(255,255,255,0.4);margin-top:10px;" onclick="exportBeforeDeath()">
+    📤 Exportar Último Estado
+  </button>
+  <button class="btn btn-red" style="max-width:280px;margin-top:10px;" onclick="endSession()">
+    💀 Encerrar Partida
+  </button>
+</div>
+```
+
+Substituir as funções `revivePlayer()` e `confirmRevive()` no `mestre.js` por:
+```js
+function revivePlayer() {
+  requirePassword(() => {
+    player.hp = 10; player.isDead = false;
+    document.getElementById('death-overlay').classList.remove('show');
+    document.body.classList.add('low-hp-revive');
+    logAction('hp', 10, 'Revivido pelo Mestre');
+    updateUI(); switchTab('combate');
+    customAlert("⚕️ Revivido!", `${player.name} volta ao combate com 10 HP! Cure-se rápido.`);
+  });
+}
+
+function useRevivePotion() {
+  let potion = player.inventory.find(i =>
+    i.type === 'use' && i.name.toLowerCase().includes('ressuscitar')
+  );
+  if (!potion) {
+    customAlert("😔 Sem Poção", "Você não tem uma Poção de Ressuscitar na mochila. Uma hora dessas...");
+    return;
+  }
+  customConfirm("🧪 Usar Poção?", "Usar Poção de Ressuscitar? Você voltará com metade do HP.", () => {
+    player.inventory = player.inventory.filter(i => i.id !== potion.id);
+    player.hp = Math.floor(player.maxHp * 0.5);
+    player.isDead = false;
+    document.getElementById('death-overlay').classList.remove('show');
+    logAction('hp', player.hp, 'Revivido por Poção');
+    saveGame(); updateUI(); switchTab('combate');
+  });
+}
+
+function exportBeforeDeath() {
+  let data = lastAliveSnapshot || player;
+  let code = btoa(encodeURIComponent(JSON.stringify(data)));
+  navigator.clipboard.writeText(code)
+    .then(() => customAlert("📤 Exportado!", "Estado antes da morte copiado! Cole no WhatsApp para guardar."))
+    .catch(() => prompt("Copie o código:", code));
+}
+
+function endSession() {
+  customConfirm("💀 Encerrar Partida", "O personagem será perdido. Tem certeza?", () => {
+    localStorage.removeItem('rpg_character');
+    window.location.href = 'index.html';
+  });
+}
+```
+
+No CSS (`mestre.css`), adicionar ao final:
+```css
+@keyframes lowHpRevivePulse {
+  0%, 100% { background-color: var(--bg-dark); }
+  50% { background-color: #1b5e20; }
+}
+body.low-hp-revive {
+  animation: lowHpRevivePulse 1.2s ease-in-out infinite;
+}
+```
+
+Em `updateUI()`, na linha que já faz o toggle de `low-hp`, adicionar logo abaixo:
+```js
+if (player.hp > player.maxHp * 0.30) document.body.classList.remove('low-hp-revive');
+```
+
+**Testar:**
+- Zerar o HP manualmente (barra de HP → Perder) → tela de morte deve aparecer e BLOQUEAR o jogo
+- Clicar em "Encerrar Turno" com a overlay aberta → não deve fazer nada
+- Botão "Encerrar Partida" → deve voltar para `index.html`
+- Botão "Reviver (Mestre)" → senha "guitarra" → volta com 10 HP, tela pulsando verde
+- Botão "Usar Poção" sem poção na mochila → mensagem de lamento
+- Botão "Exportar" → código copiado
+
+---
+
+### SESSÃO 2 — HP Pulsando Vermelho
+
+**Contexto:** Quando o HP cai para 20% ou menos, o fundo deve piscar em vermelho para alertar o jogador. Hoje só muda a cor sem piscar.
+
+**O que fazer:**
+
+No `mestre.css`, localizar:
+```css
+body.low-hp{background-color:#5c0000;transition:0.3s;}
+```
+Substituir por:
+```css
+@keyframes lowHpPulse {
+  0%, 100% { background-color: #120d09; }
+  50% { background-color: #7a0000; }
+}
+body.low-hp {
+  animation: lowHpPulse 1.2s ease-in-out infinite;
+}
+```
+
+No `mestre.js`, em `updateUI()`, localizar:
+```js
+document.body.classList.toggle('low-hp',player.hp>0&&player.hp<=player.maxHp*0.25);
+```
+Substituir por:
+```js
+document.body.classList.toggle('low-hp', player.hp > 0 && player.hp <= player.maxHp * 0.20);
+```
+
+**Testar:**
+- Com HP acima de 20%: fundo normal
+- Reduzir HP para 20% ou abaixo: fundo pisca em vermelho escuro
+- Curar acima de 20%: pulsação para imediatamente
+
+---
+
+### SESSÃO 3 — Descrição do ATK Maior e Mais Visível
+
+**Contexto:** A fórmula do ataque (`Dado(11) + Poder Total(34) = 45`) aparece em texto minúsculo abaixo do dado. Ela é tão importante quanto o número do dado mas quase invisível.
+
+**O que fazer:**
+
+No `mestre.css`, localizar:
+```css
+.dice-area{background:#fffcf2;border:2px dashed var(--gold);border-radius:12px;padding:15px;text-align:center;margin-top:12px;position:relative;}
+```
+Após essa regra, adicionar ao final do arquivo:
+```css
+#combat-log-main {
+  font-size: 15px !important;
+  line-height: 1.9 !important;
+  color: var(--ink) !important;
+  font-weight: bold !important;
+}
+#free-dice-detail {
+  font-size: 14px !important;
+  font-weight: bold !important;
+  color: var(--ink) !important;
+}
+```
+
+No `mestre.js`, na função `actionAtk()`, localizar:
+```js
+document.getElementById('combat-log-main').innerHTML=
+    `⚔️ Ataque${critLabel}<br>Dado(${d}) + Poder Total(${p.total}) = <strong>${tot}</strong>`;
+```
+Substituir por:
+```js
+document.getElementById('combat-log-main').innerHTML =
+  `⚔️ Ataque${critLabel}<br>
+   <span style="font-size:17px;font-family:'Cinzel';font-weight:900;letter-spacing:0.5px;">
+     Dado(<span style="color:var(--gem-blue);">${d}</span>) + Poder(<span style="color:var(--ink-light);">${p.total}</span>) = <span style="color:var(--gem-red);font-size:20px;">${tot}</span>
+   </span>`;
+```
+
+Na função `actionSkill()`, localizar:
+```js
+document.getElementById('combat-log-main').innerHTML=
+    `🔥 <strong>${skill}</strong>${crit?'<span class="crit-badge" style="margin-left:6px;">★ CRÍTICO!</span>':''}<br><em style="font-size:11px;color:var(--ink-light);">${desc}</em><br>Dado: ${d} | Mana: −${cost}`;
+```
+Substituir por:
+```js
+let skillTot = d + p.total;
+document.getElementById('combat-log-main').innerHTML =
+  `🔥 <strong>${skill}</strong>${crit ? '<span class="crit-badge" style="margin-left:6px;">★ CRÍTICO!</span>' : ''}<br>
+   <em style="font-size:11px;color:var(--ink-light);">${desc}</em><br>
+   <span style="font-size:17px;font-family:'Cinzel';font-weight:900;">
+     Dado(<span style="color:var(--gem-blue);">${d}</span>) + Poder(<span style="color:var(--ink-light);">${p.total}</span>) = <span style="color:var(--gem-red);font-size:20px;">${skillTot}</span>
+   </span><br>
+   <span style="font-size:12px;color:var(--ink-light);">Mana: −${cost}</span>`;
+```
+Atenção: na função `actionSkill()` já existe `let p = getPoderObj('atk');` — confirmar que existe antes de usar `p.total`.
+
+**Testar:**
+- Iniciar turno → Atacar → fórmula deve aparecer grande e legível
+- Usar habilidade → mesma coisa com nome da habilidade acima
+- Dado livre (D20) → detalhe de AGI deve aparecer maior
+
+---
+
+### SESSÃO 4 — Regra de Crítico Corrigida
+
+**Contexto:** O crítico hoje pode ser atingido com SOR 2 (critar no 19+) e o limiar mínimo é 15. A nova regra: mínimo de 17, e SOR precisa de pelo menos 6 para baixar para 17+.
+
+**O que fazer:**
+
+No `mestre.js`, localizar:
+```js
+function getCritThreshold(){return Math.max(15, 20 - Math.floor(getStat('SOR') / 2));}
+```
+Substituir por:
+```js
+function getCritThreshold() { return Math.max(17, 20 - Math.floor(getStat('SOR') / 2)); }
+```
+
+No `mestre.js`, em `ATTR_INFO`, localizar:
+```js
+SOR: { icon:"🍀", desc:"<strong>Sorte</strong> reduz o número mínimo para <em>Acerto Crítico</em>. A cada 2 pontos, o limite cai em 1. Com SOR 4 você critica no 18+, com SOR 6 no 17+. Críticos dão bônus de dano e efeito visual!" }
+```
+Substituir por:
+```js
+SOR: { icon:"🍀", desc:"<strong>Sorte</strong> reduz o número mínimo para <em>Acerto Crítico</em>. A cada 2 pontos, o limite cai em 1 (mínimo 17+). Com SOR 6 você critica no 17 ou mais. Dado natural 20 é sempre crítico independente da Sorte." }
+```
+
+**Testar:**
+- Personagem com SOR 1: crítico só no 20
+- Personagem com SOR 2: crítico no 19+
+- Personagem com SOR 6: crítico no 17+ (limite máximo)
+- Verificar que o efeito dourado só aparece quando o crítico é confirmado
+
+---
+
+### SESSÃO 5 — Sistema de Anotações Redesenhado
+
+**Contexto:** O sistema atual é um único `<textarea>` que salva texto simples. O novo sistema é uma lista de anotações individuais com título, corpo, data, busca, ordenação e modais de edição/visualização. ATENÇÃO: `player.notes` muda de string para array — a migração retroativa é obrigatória.
+
+**O que fazer:**
+
+**PARTE A — Variáveis globais** (no topo do `mestre.js`, junto das outras `let`):
+```js
+let noteSort = 'newest';
+let editingNoteId = null;
+```
+
+**PARTE B — Migração em `init()`**
+Dentro da função `init()`, após o bloco `if(saved){...}`, adicionar:
+```js
+// Migração: notes de string para array
+if (typeof player.notes === 'string') {
+  if (player.notes.trim()) {
+    player.notes = [{ id: Date.now(), title: 'Anotação Importada', body: player.notes, createdAt: Date.now(), updatedAt: Date.now() }];
+  } else {
+    player.notes = [];
+  }
+}
+if (!Array.isArray(player.notes)) player.notes = [];
+```
+
+**PARTE C — Remover do `commestre.html`** a linha:
+```html
+<textarea id="notes-area" placeholder="Escreva aqui suas anotações, objetivos, segredos..." oninput="saveNotes()"></textarea>
+```
+E o título acima dela:
+```html
+<h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin:15px 0 5px;">📝 Anotações</h3>
+```
+
+**PARTE D — Substituir por nova UI no mesmo local** (aba Ficha, no final):
+```html
+<div style="display:flex;justify-content:space-between;align-items:center;margin:15px 0 8px;">
+  <h3 style="font-size:14px;margin:0;">📝 Anotações</h3>
+  <div style="display:flex;gap:6px;">
+    <button class="btn btn-outline" style="width:auto;padding:5px 10px;font-size:11px;" onclick="openNoteSearch()">🔍 Buscar</button>
+    <button class="btn btn-primary" style="width:auto;padding:5px 10px;font-size:11px;" onclick="openNoteModal(null)">+ Nova</button>
+  </div>
+</div>
+<div id="note-search-wrap" style="display:none;margin-bottom:8px;">
+  <input type="text" id="note-search-input" placeholder="Buscar nas anotações..." oninput="renderNotesList()" style="margin:0;">
+</div>
+<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
+  <span style="font-size:11px;color:var(--ink-light);font-weight:bold;">Ordem:</span>
+  <button class="btn-filter active" id="sort-newest" onclick="setNoteSort('newest')">Mais recentes</button>
+  <button class="btn-filter" id="sort-oldest" onclick="setNoteSort('oldest')">Mais antigas</button>
+</div>
+<div id="notes-list"></div>
+```
+
+**PARTE E — Adicionar 2 modais no `commestre.html`** (antes de `<script src="mestre.js">`):
+```html
+<!-- MODAL EDITAR/CRIAR ANOTAÇÃO -->
+<div class="modal-overlay" id="modal-note-edit">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-note-edit')">×</button>
+    <h2 class="modal-title" id="note-edit-title">Nova Anotação</h2>
+    <label>Título</label>
+    <input type="text" id="note-input-title" placeholder="Ex: Missão da Taverna, Mapa Secreto...">
+    <label>Anotação</label>
+    <textarea id="note-input-body" placeholder="Escreva aqui..." style="min-height:140px;"></textarea>
+    <button class="btn btn-primary" onclick="saveNote()" style="margin-top:8px;">💾 SALVAR</button>
+  </div>
+</div>
+
+<!-- MODAL VER ANOTAÇÃO COMPLETA -->
+<div class="modal-overlay" id="modal-note-view">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('modal-note-view')">×</button>
+    <h2 class="modal-title" id="note-view-title">Anotação</h2>
+    <div id="note-view-body" style="font-size:14px;line-height:1.8;color:var(--ink);white-space:pre-wrap;margin-bottom:15px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-blue" id="note-view-edit-btn">✏️ Editar</button>
+      <button class="btn btn-red" id="note-view-delete-btn">🗑️ Excluir</button>
+    </div>
+  </div>
+</div>
+```
+
+**PARTE F — Remover função `saveNotes()`** do `mestre.js` e adicionar no final do arquivo:
+```js
+//// INÍCIO BLOCO 11 - SISTEMA DE ANOTAÇÕES ////
+function openNoteSearch() {
+  let wrap = document.getElementById('note-search-wrap');
+  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+  if (wrap.style.display === 'block') document.getElementById('note-search-input').focus();
+}
+
+function setNoteSort(type) {
+  noteSort = type;
+  document.getElementById('sort-newest').classList.toggle('active', type === 'newest');
+  document.getElementById('sort-oldest').classList.toggle('active', type === 'oldest');
+  renderNotesList();
+}
+
+function openNoteModal(id) {
+  editingNoteId = id;
+  let note = id ? player.notes.find(n => n.id === id) : null;
+  document.getElementById('note-edit-title').innerText = note ? '✏️ Editar Anotação' : '📝 Nova Anotação';
+  document.getElementById('note-input-title').value = note ? note.title : '';
+  document.getElementById('note-input-body').value = note ? note.body : '';
+  showModal('modal-note-edit');
+}
+
+function saveNote() {
+  let title = document.getElementById('note-input-title').value.trim();
+  let body  = document.getElementById('note-input-body').value.trim();
+  if (!body) return customAlert("Atenção", "Escreva algo na anotação antes de salvar.");
+  if (!title) title = 'Sem título';
+  if (editingNoteId) {
+    let note = player.notes.find(n => n.id === editingNoteId);
+    if (note) { note.title = title; note.body = body; note.updatedAt = Date.now(); }
+  } else {
+    player.notes.unshift({ id: Date.now(), title, body, createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  saveGame(); closeModal('modal-note-edit'); renderNotesList();
+}
+
+function deleteNote(id) {
+  customConfirm("🗑️ Excluir?", "Esta anotação será apagada permanentemente.", () => {
+    player.notes = player.notes.filter(n => n.id !== id);
+    saveGame(); closeModal('modal-note-view'); renderNotesList();
+  });
+}
+
+function openNoteView(id) {
+  let note = player.notes.find(n => n.id === id); if (!note) return;
+  document.getElementById('note-view-title').innerText = note.title || 'Sem título';
+  document.getElementById('note-view-body').innerText = note.body;
+  document.getElementById('note-view-edit-btn').onclick   = () => { closeModal('modal-note-view'); openNoteModal(id); };
+  document.getElementById('note-view-delete-btn').onclick = () => deleteNote(id);
+  showModal('modal-note-view');
+}
+
+function renderNotesList() {
+  let search = (document.getElementById('note-search-input')?.value || '').toLowerCase();
+  let list = (player.notes || [])
+    .filter(n => !search || n.title.toLowerCase().includes(search) || n.body.toLowerCase().includes(search))
+    .sort((a, b) => noteSort === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt);
+  let container = document.getElementById('notes-list'); if (!container) return;
+  if (!list.length) {
+    container.innerHTML = `<p style="text-align:center;color:#999;padding:20px;font-size:13px;">${search ? 'Nenhuma anotação encontrada.' : 'Nenhuma anotação ainda. Clique em + Nova para começar.'}</p>`;
+    return;
+  }
+  const LIMIT = 160;
+  container.innerHTML = list.map(note => {
+    let isLong = note.body.length > LIMIT;
+    let preview = isLong ? note.body.substring(0, LIMIT) + '...' : note.body;
+    let date = new Date(note.createdAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    return `<div class="note-card" onclick="${isLong ? `openNoteView(${note.id})` : ''}">
+      <div class="note-card-header">
+        <span class="note-card-title">${note.title || 'Sem título'}</span>
+        <span class="note-card-date">${date}</span>
+      </div>
+      <div class="note-card-body">${preview.replace(/\n/g, '<br>')}</div>
+      ${isLong ? `<div class="note-card-more">Toque para ler mais ▼</div>` : ''}
+      <div class="note-card-actions">
+        <button onclick="event.stopPropagation();openNoteModal(${note.id})" class="btn-note-action btn-note-edit">✏️ Editar</button>
+        <button onclick="event.stopPropagation();deleteNote(${note.id})" class="btn-note-action btn-note-delete">🗑️ Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+//// FIM BLOCO 11 ////
+```
+
+**PARTE G — Chamar `renderNotesList()` dentro de `renderFicha()`**
+No final da função `renderFicha()`, antes do fechamento `}`, adicionar:
+```js
+renderNotesList();
+```
+
+**PARTE H — CSS** (adicionar ao final do `mestre.css`):
+```css
+.btn-filter{background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.12);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:bold;cursor:pointer;font-family:'Merriweather',serif;color:var(--ink);transition:background 0.2s;}
+.btn-filter.active{background:var(--ink);color:var(--gold);border-color:var(--ink);}
+.note-card{background:white;border:1px solid rgba(0,0,0,0.08);border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 2px 6px rgba(0,0,0,0.04);transition:box-shadow 0.2s;}
+.note-card:active{box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+.note-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.note-card-title{font-weight:bold;font-size:14px;color:var(--ink);font-family:'Cinzel',serif;flex:1;margin-right:8px;}
+.note-card-date{font-size:10px;color:var(--ink-light);flex-shrink:0;}
+.note-card-body{font-size:13px;color:var(--ink-light);line-height:1.6;margin-bottom:8px;word-break:break-word;}
+.note-card-more{font-size:11px;color:var(--gold);font-weight:bold;margin-bottom:8px;cursor:pointer;}
+.note-card-actions{display:flex;gap:8px;border-top:1px solid rgba(0,0,0,0.06);padding-top:8px;margin-top:4px;}
+.btn-note-action{flex:1;padding:6px;border:none;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;font-family:'Merriweather',serif;transition:opacity 0.2s;}
+.btn-note-action:active{opacity:0.7;}
+.btn-note-edit{background:rgba(25,118,210,0.1);color:#1976d2;}
+.btn-note-delete{background:rgba(211,47,47,0.1);color:#d32f2f;}
+```
+
+**Testar:**
+- Abrir aba Ficha → área de anotações nova deve aparecer
+- Clicar em "+ Nova" → modal abre com campos título e corpo
+- Salvar → card aparece na lista com título e data
+- Criar anotação com mais de 160 caracteres → deve truncar com "Toque para ler mais ▼"
+- Clicar no card truncado → modal abre com texto completo
+- Botão Editar → modal abre preenchido → salvar atualiza o card
+- Botão Excluir → confirma → remove o card
+- Campo de busca → filtra em tempo real
+- Botões de ordenação → reordenam a lista
+- Recarregar a página → anotações permanecem salvas
+
+---
+
+### SESSÃO 6 — Diff Visual de Atributos
+
+**Contexto:** Quando o jogador seleciona um atributo para receber +1 ponto, tudo na ficha que seria afetado deve mostrar o valor antigo riscado em vermelho e o novo valor em verde, ao vivo, antes de confirmar.
+
+**O que fazer:**
+
+No `mestre.js`, adicionar as funções auxiliares antes de `renderFicha()`:
+```js
+function diffHTML(oldVal, newVal) {
+  return `<span style="color:#c62828;text-decoration:line-through;font-size:11px;">${oldVal}</span>` +
+         `<span style="color:#aaa;font-size:11px;"> → </span>` +
+         `<span style="color:#2e7d32;font-weight:900;font-size:13px;">${newVal}</span>`;
+}
+
+function getStatPreview(stat) {
+  let next = player.finalStats[stat] + 1;
+  let preview = {};
+  if (stat === 'VIT') {
+    let newMaxHp = 20 + (next * 3) + getAccVal('hp') + getBuffVal('hp_max') + ((player.level - 1) * 2);
+    preview.maxHp = { old: player.maxHp, new: newMaxHp };
+  }
+  if (stat === 'INT') {
+    let newMaxMp = 15 + (next * 2) + getAccVal('mp') + getBuffVal('mp_max') + (player.level - 1);
+    preview.maxMp = { old: player.maxMp, new: newMaxMp };
+  }
+  if (stat === 'FOR') {
+    preview.maxLoad = { old: getMaxLoad(), new: 10 + (next * 5) + getAccVal('kg') + getBuffVal('kg') + ((player.level - 1) * 2) };
+    let p = getPoderObj('atk');
+    preview.atk = { old: p.total, new: p.total + 1 };
+  }
+  if (stat === 'SOR') {
+    let oldC = getCritThreshold();
+    let newC = Math.max(17, 20 - Math.floor((getStat('SOR') + 1) / 2));
+    if (newC !== oldC) preview.crit = { old: oldC, new: newC };
+  }
+  if (stat === 'CAR') {
+    let oldD = getCarismaDiscount();
+    let newD = Math.min(50, Math.floor((getStat('CAR') + 1) / 2) * 10);
+    if (newD !== oldD) preview.discount = { old: oldD, new: newD };
+  }
+  if (stat === 'AGI') {
+    preview.agi = { old: getStat('AGI'), new: getStat('AGI') + 1 };
+  }
+  return preview;
+}
+```
+
+Em `renderFicha()`, após calcular `finalV` e antes de montar o HTML de cada atributo, adicionar:
+```js
+let preview = pendingStatAllocation ? getStatPreview(pendingStatAllocation) : {};
+```
+
+Na montagem do valor do atributo selecionado, onde hoje mostra o número estático, trocar para:
+```js
+let valDisplay = sel ? diffHTML(finalV, finalV + 1) : `${finalV}${buffStr}`;
+// usar valDisplay onde antes usava finalV
+```
+
+Na montagem do array de mecânicas dentro de `renderFicha()`, substituir os valores estáticos pelos diff quando aplicável:
+```js
+{icon:'⚔️',name:'Bônus de Ataque',
+  val: preview.atk ? diffHTML('+'+preview.atk.old, '+'+preview.atk.new) : `+${getStat('FOR')} (Força)`,
+  desc:'Somado ao dado em ataques físicos'},
+{icon:'🍀',name:'Acerto Crítico',
+  val: preview.crit ? diffHTML(preview.crit.old+'–20', preview.crit.new+'–20') : `${getCritThreshold()}–20`,
+  desc:`Rol ${getCritThreshold()}+ = CRÍTICO!`},
+{icon:'🗣️',name:'Desconto Loja',
+  val: preview.discount ? diffHTML(preview.discount.old+'%', preview.discount.new+'%') : `${getCarismaDiscount()}%`,
+  desc:`CAR ${getStat('CAR')} → ${getCarismaDiscount()}% de desconto`},
+{icon:'💪',name:'Carga Máxima',
+  val: preview.maxLoad ? diffHTML(preview.maxLoad.old+'kg', preview.maxLoad.new+'kg') : `${getMaxLoad()}kg`,
+  desc:'10 + (FOR×5) + bônus de nível'},
+{icon:'💧',name:'Mana Máxima',
+  val: preview.maxMp ? diffHTML(preview.maxMp.old+'MP', preview.maxMp.new+'MP') : `${player.maxMp}MP`,
+  desc:'15 + (INT×2) + bônus de nível'},
+```
+
+**Testar:**
+- Subir de nível para ter ponto livre
+- Selecionar FOR → Carga Máxima e Bônus de Ataque devem mostrar diff vermelho → verde
+- Selecionar VIT → Vida Máxima deve mostrar diff
+- Confirmar distribuição → valores voltam ao normal (agora maiores)
+- Cancelar seleção → diff some, valores originais voltam
+
+---
+
+### SESSÃO 7 — Mecânicas Dinâmicas
+
+**Contexto:** As descrições da seção Mecânicas são genéricas e não mostram os números reais do personagem.
+
+**O que fazer:**
+
+Em `renderFicha()`, substituir o array de mecânicas atual pelo novo com descrições dinâmicas:
+```js
+let pAtkObj = getPoderObj('atk');
+let pDefObj = getPoderObj('def');
+let cargaAtual = parseFloat(getCurrentLoad().toFixed(1));
+let cargaMax = getMaxLoad();
+let cargaPct = Math.round((cargaAtual / cargaMax) * 100);
+let cargaWarn = cargaAtual > cargaMax ? ' <span style="color:var(--gem-red);">⚠️ Sobrecarregado!</span>' : '';
+
+function pStr(label, val) { return val > 0 ? `${label}(${val})` : ''; }
+let atkParts = [pStr('FOR',getStat('FOR')), pStr('Nv',pAtkObj.lvl), pStr('Equip',pAtkObj.eq), pStr('Acess',pAtkObj.acc), pStr('Efeitos',pAtkObj.buff)].filter(Boolean).join(' + ');
+let defParts = [pStr('Nv',pDefObj.lvl), pStr('Armadura',pDefObj.eq), pStr('Acess',pDefObj.acc), pStr('Efeitos',pDefObj.buff)].filter(Boolean).join(' + ');
+
+let sorDesc = getStat('SOR') < 2
+  ? `SOR(${getStat('SOR')}) → só dado natural 20. Aumente Sorte para baixar o limiar.`
+  : getCritThreshold() === 17
+    ? `SOR(${getStat('SOR')}) → limite máximo! Crítico com 17+ 🍀`
+    : `SOR(${getStat('SOR')}) → crítico com ${getCritThreshold()}+. Próximo limiar em SOR ${(Math.floor(getStat('SOR')/2)+1)*2}.`;
+
+let carDesc = getCarismaDiscount() === 0
+  ? `CAR(${getStat('CAR')}) → sem desconto ainda. Precisa de CAR 2 para 10%.`
+  : getCarismaDiscount() === 50
+    ? `CAR(${getStat('CAR')}) → desconto máximo de 50% atingido! 🗣️`
+    : `CAR(${getStat('CAR')}) → ${getCarismaDiscount()}% de desconto. Próximo em CAR ${(Math.floor(getStat('CAR')/2)+1)*2}.`;
+
+let mecanicas = [
+  {icon:'⚔️',name:'Bônus de Ataque',    val: preview.atk ? diffHTML('+'+preview.atk.old,'+'+preview.atk.new) : `+${pAtkObj.total}`,  desc:`${atkParts} = ${pAtkObj.total} somado ao dado ⚔️`},
+  {icon:'🛡️',name:'Bônus de Defesa',    val: `+${pDefObj.total}`,  desc:`${defParts || 'Nenhum bônus ainda'} = ${pDefObj.total} somado ao dado 🛡️`},
+  {icon:'❤️',name:'Vida Máxima',         val: preview.maxHp ? diffHTML(preview.maxHp.old+'HP',preview.maxHp.new+'HP') : `${player.maxHp}HP`, desc:`Base(20) + VIT×3(${getStat('VIT')*3}) + Nv(${(player.level-1)*2}) = ${player.maxHp}HP. Atual: ${player.hp}HP (${Math.round((player.hp/player.maxHp)*100)}%)`},
+  {icon:'💧',name:'Mana Máxima',         val: preview.maxMp ? diffHTML(preview.maxMp.old+'MP',preview.maxMp.new+'MP') : `${player.maxMp}MP`, desc:`Base(15) + INT×2(${getStat('INT')*2}) + Nv(${player.level-1}) = ${player.maxMp}MP. Habilidade custa ${player.cost}MP ${player.mp>=player.cost?'✅':'❌'}`},
+  {icon:'🍀',name:'Acerto Crítico',      val: preview.crit ? diffHTML(preview.crit.old+'–20',preview.crit.new+'–20') : `${getCritThreshold()}–20`, desc:sorDesc},
+  {icon:'🗣️',name:'Desconto Loja',       val: preview.discount ? diffHTML(preview.discount.old+'%',preview.discount.new+'%') : `${getCarismaDiscount()}%`, desc:carDesc},
+  {icon:'💪',name:'Carga Máxima',        val: preview.maxLoad ? diffHTML(preview.maxLoad.old+'kg',preview.maxLoad.new+'kg') : `${cargaMax}kg`, desc:`Base(10) + FOR×5(${getStat('FOR')*5}) + Nv(${(player.level-1)*2})kg = ${cargaMax}kg. Uso: ${cargaAtual}kg (${cargaPct}%)${cargaWarn}`},
+  {icon:'⚡',name:'Dado de Iniciativa',  val:`D20+${getStat('AGI')}`, desc:`AGI(${getStat('AGI')}) somado ao D20. Quanto maior, mais chance de agir primeiro.`},
+];
+```
+
+**Testar:**
+- Abrir aba Ficha → seção Mecânicas deve mostrar fórmulas com números reais
+- Vida Máxima e Dado de Iniciativa devem aparecer (eram itens faltantes)
+- Com mochila pesada: Carga Máxima deve mostrar % e alerta de sobrecarga
+- Com mana insuficiente para habilidade: Mana Máxima mostra ❌
+
+---
+
+### SESSÃO 8 — Log de Combate + Confirmação de Turno
+
+**Contexto:** O log de combate mostra só a última ação. Encerrar turno não pede confirmação.
+
+**O que fazer:**
+
+Adicionar variável global no topo do `mestre.js`:
+```js
+let combatLog = [];
+```
+
+Em `startTurn()`, após `turnState='active'`, adicionar:
+```js
+combatLog = [];
+```
+
+Criar função de renderização do log:
+```js
+function pushCombatLog(html) {
+  combatLog.unshift(html);
+  if (combatLog.length > 4) combatLog.pop();
+  let logEl = document.getElementById('combat-log-main');
+  logEl.innerHTML = combatLog.map((entry, i) =>
+    `<div style="opacity:${i === 0 ? 1 : 0.45};font-size:${i === 0 ? '14px' : '12px'};padding:2px 0;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.07);margin-top:4px;' : ''}">${entry}</div>`
+  ).join('');
+}
+```
+
+Em `actionAtk()`, substituir a linha `document.getElementById('combat-log-main').innerHTML=...` por:
+```js
+pushCombatLog(`⚔️ Ataque${critLabel} — <span style="font-family:'Cinzel';font-weight:900;">Dado(${d})+Poder(${p.total})=<span style="color:var(--gem-red);">${tot}</span></span>`);
+```
+
+Em `actionSkill()`, fazer o mesmo padrão com o nome da habilidade.
+
+Em `openDefModal()`, após calcular `defShieldTotal`, adicionar:
+```js
+pushCombatLog(`🛡️ Defesa — Escudo final: <strong>${defShieldTotal}</strong>`);
+```
+
+Em `rollFreeDice()`, substituir a linha do `combat-log-main` por:
+```js
+pushCombatLog(crit ? `🎲 D20: <strong style="color:var(--gold);">${d} ★ CRÍTICO!</strong>` : `🎲 D20: <strong>${d}</strong>`);
+```
+
+No botão `btn-end-turn` do `commestre.html`, substituir `onclick="endTurn()"` por:
+```js
+onclick="customConfirm('⚔️ Encerrar Turno?','Confirmar o fim do turno? Efeitos e sobrecarga serão processados.',()=>endTurn())"
+```
+
+**Testar:**
+- Fazer 3 ações no turno → as 3 devem aparecer empilhadas, mais recente no topo em destaque
+- 4ª ação → a mais antiga some
+- Botão Encerrar Turno → pede confirmação antes de processar
+
+---
+
+### SESSÃO 9 — Sons (Web Audio API)
+
+**Contexto:** Sem feedback sonoro nenhum. Implementar 4 sons simples sem arquivos externos.
+
+**O que fazer:**
+
+Adicionar ao final do `mestre.js`:
+```js
+//// INÍCIO BLOCO 12 - SONS ////
+function playSound(type) {
+  try {
+    let ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let g = ctx.createGain();
+    g.connect(ctx.destination);
+    if (type === 'dice') {
+      let o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 300;
+      o.connect(g); g.gain.setValueAtTime(0.15, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      o.start(); o.stop(ctx.currentTime + 0.08);
+    } else if (type === 'crit') {
+      [523, 784].forEach((freq, i) => {
+        let o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = freq;
+        let gn = ctx.createGain(); o.connect(gn); gn.connect(ctx.destination);
+        let t = ctx.currentTime + i * 0.18;
+        gn.gain.setValueAtTime(0.25, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        o.start(t); o.stop(t + 0.3);
+      });
+    } else if (type === 'hit') {
+      let o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 80;
+      o.connect(g); g.gain.setValueAtTime(0.3, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      o.start(); o.stop(ctx.currentTime + 0.3);
+    } else if (type === 'death') {
+      let o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(200, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.9);
+      o.connect(g); g.gain.setValueAtTime(0.3, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+      o.start(); o.stop(ctx.currentTime + 0.9);
+    }
+    setTimeout(() => ctx.close(), 1500);
+  } catch(e) {}
+}
+//// FIM BLOCO 12 ////
+```
+
+Adicionar chamadas:
+- Em `spinDice()`: adicionar `playSound('dice');` no início
+- Em `triggerCritEffect()`: adicionar `playSound('crit');` no início
+- Em `applyDefDamage()`, após `if(real>0)`: adicionar `playSound('hit');`
+- Em `executeBarAction('sub')`, após aplicar dano: adicionar `playSound('hit');`
+- Em `promptDeath()`: adicionar `playSound('death');` antes de mostrar a overlay
+
+**Testar:**
+- Rolar qualquer dado → som curto de "clique"
+- Crítico → dois tons ascendentes
+- Receber dano → som grave
+- Morrer → som descendente longo
+
+---
+
+### SESSÃO 10 — Filtros da Mochila
+
+**Contexto:** A mochila lista todos os itens sem filtragem.
+
+**O que fazer:**
+
+Adicionar variável global no topo do `mestre.js`:
+```js
+let mochilaFilter = 'all';
+```
+
+No `commestre.html`, na aba Mochila, antes de `<div id="inventory-list">`, adicionar:
+```html
+<div id="mochila-filters" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+  <button class="btn-filter active" onclick="setMochilaFilter('all')">Todos</button>
+  <button class="btn-filter" onclick="setMochilaFilter('atk')">⚔️ Armas</button>
+  <button class="btn-filter" onclick="setMochilaFilter('def')">🛡️ Armaduras</button>
+  <button class="btn-filter" onclick="setMochilaFilter('acc')">💍 Acessórios</button>
+  <button class="btn-filter" onclick="setMochilaFilter('use')">🧪 Poções</button>
+</div>
+```
+
+Adicionar função no `mestre.js` (no Bloco 07 — Mochila):
+```js
+function setMochilaFilter(type) {
+  mochilaFilter = type;
+  document.querySelectorAll('#mochila-filters .btn-filter').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderMochila();
+}
+```
+
+Em `renderMochila()`, substituir:
+```js
+[...player.inventory].sort(...)
+```
+por:
+```js
+let filtered = mochilaFilter === 'all' ? player.inventory : player.inventory.filter(i => i.type === mochilaFilter);
+[...filtered].sort(...)
+```
+
+**Testar:**
+- Com itens de tipos diferentes, clicar em cada filtro → lista filtra corretamente
+- "Todos" mostra tudo
+- Filtro ativo fica destacado
+
+---
+
+### SESSÃO 11 — PWA (Progressive Web App)
+
+**Contexto:** O jogo roda só no browser. Adicionar manifest + service worker permite instalar como app nativo no celular, abrindo em tela cheia e funcionando offline.
+
+**O que fazer:**
+
+Criar arquivo novo `manifest.json` na mesma pasta dos outros arquivos:
+```json
+{
+  "name": "Lendas RPG",
+  "short_name": "Lendas RPG",
+  "description": "Sistema de personagem para RPG de mesa",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#120d09",
+  "theme_color": "#d4af37",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+```
+
+Criar arquivo novo `sw.js` na mesma pasta:
+```js
+const CACHE = 'lendas-rpg-v1';
+const FILES = ['./', './index.html', './commestre.html', './mestre.js', './mestre.css'];
+self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))));
+self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+```
+
+No `index.html` e no `commestre.html`, antes de `</body>`, adicionar:
+```html
+<link rel="manifest" href="manifest.json">
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');</script>
+```
+
+Para os ícones: se não tiver arquivos PNG, criar `icon-192.png` e `icon-512.png` usando Canvas — ou usar qualquer imagem de espada/RPG renomeada para esses nomes.
+
+**Testar:**
+- Abrir no Chrome mobile → ícone de "Instalar app" deve aparecer no menu do browser
+- Após instalar: abre em tela cheia sem barra de endereço
+- Desligar o WiFi e recarregar → jogo continua funcionando (cache offline)
+
+---
+
+### SESSÃO 12 — Persistir Estado do Turno
+
+**Contexto:** Se o jogador recarregar a página no meio do turno, o turno é perdido e volta para a tela de espera.
+
+**O que fazer:**
+
+Em `saveGame()`, substituir:
+```js
+function saveGame(){ localStorage.setItem('rpg_character',JSON.stringify(player)); }
+```
+por:
+```js
+function saveGame(){
+  localStorage.setItem('rpg_character', JSON.stringify(player));
+  localStorage.setItem('rpg_turn_state', JSON.stringify({ turnState, actionsUsed }));
+}
+```
+
+Em `init()`, após `updateUI()`, adicionar:
+```js
+let savedTurn = localStorage.getItem('rpg_turn_state');
+if (savedTurn) {
+  try {
+    let t = JSON.parse(savedTurn);
+    turnState = t.turnState || 'wait';
+    actionsUsed = t.actionsUsed || { atk:0, pot:0, def:0 };
+    if (turnState === 'active') {
+      document.getElementById('wait-overlay').classList.add('hidden');
+    }
+  } catch(e) {}
+}
+```
+
+Em `endTurn()`, após `turnState='wait'`, adicionar:
+```js
+localStorage.removeItem('rpg_turn_state');
+```
+
+**Testar:**
+- Iniciar turno → recarregar a página → deve voltar com o turno ainda ativo
+- Encerrar turno normalmente → recarregar → volta para tela de espera
+
+---
+
+## ESTADO DAS SESSÕES
+(Risque ou marque ✅ conforme for concluindo)
+
+- [x] Sessão 1 — Bug da Morte + Tela de Morte
+- [x] Sessão 2 — HP Pulsando Vermelho
+- [x] Sessão 3 — Descrição ATK Maior
+- [x] Sessão 4 — Regra de Crítico
+- [x] Sessão 5 — Sistema de Anotações
+- [x] Sessão 6 — Diff Visual de Atributos
+- [ ] Sessão 7 — Mecânicas Dinâmicas
+- [ ] Sessão 8 — Log de Combate + Confirmação
+- [ ] Sessão 9 — Sons
+- [ ] Sessão 10 — Filtros da Mochila
+- [ ] Sessão 11 — PWA
+- [ ] Sessão 12 — Persistir Estado do Turno

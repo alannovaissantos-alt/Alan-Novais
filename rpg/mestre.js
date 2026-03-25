@@ -18,7 +18,7 @@ const ATTR_INFO = {
   AGI: { icon:"🌀", desc:"<strong>Agilidade</strong> aumenta seu <em>Dado de Iniciativa</em>, determinando quem age primeiro no combate. Quanto maior, mais chance de agir antes do inimigo." },
   VIT: { icon:"❤️", desc:"<strong>Vitalidade</strong> aumenta sua <em>Vida Máxima</em> (+3 HP por ponto). Personagens com alta VIT sobrevivem mais golpes." },
   CAR: { icon:"🗣️", desc:"<strong>Carisma</strong> dá <em>desconto na loja</em> ao comprar itens. A cada 2 pontos de CAR você ganha 10% de desconto (máximo 50%)." },
-  SOR: { icon:"🍀", desc:"<strong>Sorte</strong> reduz o número mínimo para <em>Acerto Crítico</em>. A cada 2 pontos, o limite cai em 1. Com SOR 4 você critica no 18+, com SOR 6 no 17+. Críticos dão bônus de dano e efeito visual!" }
+  SOR: { icon:"🍀", desc:"<strong>Sorte</strong> reduz o número mínimo para <em>Acerto Crítico</em>. A cada 2 pontos, o limite cai em 1 (mínimo 17+). Com SOR 6 você critica no 17 ou mais. Dado natural 20 é sempre crítico independente da Sorte." }
 };
 //// FIM BLOCO 01 ////
 
@@ -32,9 +32,12 @@ let player = {
   inventory:[],buffs:[],hots:[],history:[],notes:"",isDead:false
 };
 let turnState='wait', actionsUsed={atk:0,pot:0,def:0};
+let noteSort = 'newest';
+let editingNoteId = null;
+let notePage = 1;
 let activeBarTarget='', selectedItem=null, isBuyMode=false;
 let effMode='pos', pwdCallback=null, pendingStatAllocation=null;
-let defIsReaction=false, defShieldTotal=0;
+let defIsReaction=false, defShieldTotal=0, lastAliveSnapshot=null;
 
 function init() {
   let saved=localStorage.getItem('rpg_character');
@@ -47,7 +50,6 @@ function init() {
     if(!player.inventory) player.inventory=[];
     if(player.gold===undefined) player.gold=0;
     if(!player.maxLevelReached) player.maxLevelReached=player.level;
-    if(!player.notes)    player.notes='';
     if(player.isDead===undefined) player.isDead=false;
     if(!player.skill&&player.skillName) player.skill=player.skillName;
     if(!player.cost&&player.skillCost)  player.cost=player.skillCost;
@@ -56,12 +58,22 @@ function init() {
     player.personality="O Rato de Masmorra"; player.personalityDesc="A curiosidade vence o bom senso.";
     player.finalStats={FOR:3,INT:1,AGI:4,VIT:2,CAR:1,SOR:4};
   }
+
+  // Migração: notes de string para array
+  if (typeof player.notes === 'string') {
+    if (player.notes.trim()) {
+      player.notes = [{ id: Date.now(), title: 'Anotação Importada', body: player.notes, createdAt: Date.now(), updatedAt: Date.now() }];
+    } else {
+      player.notes = [];
+    }
+  }
+  if (!Array.isArray(player.notes)) player.notes = [];
+
   let cd=CLASSES_DATA[player.cls];
   if(cd){ player.skill=cd.skill; player.cost=cd.cost; player.skillDesc=cd.desc; player.danoPronto=cd.getDano(player.finalStats); }
   recalcMaxStats();
   updateUI();
   switchTab('combate');
-  document.getElementById('notes-area').value=player.notes||'';
   if(player.isDead && player.hp<=0) document.getElementById('death-overlay').classList.add('show');
   else player.isDead=false; 
 }
@@ -99,6 +111,7 @@ function switchTab(tabId){
   }
   if(tabId==='ficha')   renderFicha();
   if(tabId==='mochila') renderMochila();
+  if(tabId==='diario')  renderNotesList();
   updateUI();
 }
 
@@ -110,24 +123,42 @@ function updateUI(){
   let en=getExpNext(player.level);
   document.getElementById('txt-exp').innerText   =`${player.exp}/${en}`;
   document.getElementById('bar-exp').style.width =`${Math.min(100,(player.exp/en)*100)}%`;
+  
+  let pMaxHp = player.maxHp, pMaxMp = player.maxMp, pMaxLoad = getMaxLoad();
+  let pAtk = getPoderObj('atk').total, pDef = getPoderObj('def').total;
+
+  if (pendingStatAllocation === 'VIT') pMaxHp = 20 + ((player.finalStats['VIT'] + 1) * 3) + getAccVal('hp') + getBuffVal('hp_max') + ((player.level - 1) * 2);
+  if (pendingStatAllocation === 'INT') pMaxMp = 15 + ((player.finalStats['INT'] + 1) * 2) + getAccVal('mp') + getBuffVal('mp_max') + (player.level - 1);
+  if (pendingStatAllocation === 'FOR') {
+      pMaxLoad = 10 + ((player.finalStats['FOR'] + 1) * 5) + getAccVal('kg') + getBuffVal('kg') + ((player.level - 1) * 2);
+      pAtk += 1;
+  }
+
+  let formatVal = (val, isPreview) => isPreview ? `<span style="color:#2e7d32;font-weight:900;">${val}</span>` : val;
   let hpShow=Math.max(0,player.hp);
-  document.getElementById('txt-hp').innerText   =`${hpShow}/${player.maxHp}`;
-  document.getElementById('bar-hp').style.width =`${Math.max(0,(hpShow/player.maxHp)*100)}%`;
-  document.getElementById('txt-mp').innerText   =`${player.mp}/${player.maxMp}`;
-  document.getElementById('bar-mp').style.width =`${Math.max(0,(player.mp/player.maxMp)*100)}%`;
-  document.getElementById('ribbon-hp').innerText=`${hpShow}/${player.maxHp}`;
-  document.getElementById('ribbon-mp').innerText=`${player.mp}/${player.maxMp}`;
-  let cMax=getMaxLoad(), cCur=getCurrentLoad();
-  let cStr=`${parseFloat(cCur.toFixed(1))}/${cMax}kg`;
-  document.getElementById('txt-carga').innerText    =cStr;
-  document.getElementById('ribbon-carga').innerText =cStr;
+  
+  document.getElementById('txt-hp').innerHTML   =`${hpShow}/${formatVal(pMaxHp, pendingStatAllocation==='VIT')}`;
+  document.getElementById('bar-hp').style.width =`${Math.max(0,(hpShow/pMaxHp)*100)}%`;
+  document.getElementById('txt-mp').innerHTML   =`${player.mp}/${formatVal(pMaxMp, pendingStatAllocation==='INT')}`;
+  document.getElementById('bar-mp').style.width =`${Math.max(0,(player.mp/pMaxMp)*100)}%`;
+  document.getElementById('ribbon-hp').innerHTML=`${hpShow}/${formatVal(pMaxHp, pendingStatAllocation==='VIT')}`;
+  document.getElementById('ribbon-mp').innerHTML=`${player.mp}/${formatVal(pMaxMp, pendingStatAllocation==='INT')}`;
+  
+  let cCur=getCurrentLoad();
+  let cStr=`${parseFloat(cCur.toFixed(1))}/${formatVal(pMaxLoad, pendingStatAllocation==='FOR')}kg`;
+  document.getElementById('txt-carga').innerHTML    =cStr;
+  document.getElementById('ribbon-carga').innerHTML =cStr;
+  
   let wc=document.getElementById('warn-carga');
-  if(cCur>cMax){wc.style.display='block';wc.innerText=cCur/cMax>=1.25?'⚠️ Sobrecarga Crítica! (sem ataques)':'⚠️ Sobrecarga Leve! (−1 HP/turno)';}
+  if(cCur>pMaxLoad){wc.style.display='block';wc.innerText=cCur/pMaxLoad>=1.25?'⚠️ Sobrecarga Crítica! (sem ataques)':'⚠️ Sobrecarga Leve! (−1 HP/turno)';}
   else wc.style.display='none';
+  
   document.getElementById('lbl-hp').className    =getBuffVal('hp_max')>0?'buff-aura':'';
   document.getElementById('lbl-mp').className    =getBuffVal('mp_max')>0?'buff-aura':'';
   document.getElementById('lbl-carga').className =getBuffVal('kg')>0?'buff-aura':'';
-  document.body.classList.toggle('low-hp',player.hp>0&&player.hp<=player.maxHp*0.25);
+  document.body.classList.toggle('low-hp',player.hp>0&&player.hp<=player.maxHp*0.20);
+  if(player.hp > player.maxHp * 0.3) document.body.classList.remove('low-hp-revive');
+  
   let over=(getCurrentLoad()/getMaxLoad()>=1.25);
   document.getElementById('count-atk').innerText=`${actionsUsed.atk}/1`;
   let bA=document.getElementById('btn-atk'), bD=document.getElementById('btn-def'), bS=document.getElementById('btn-skill');
@@ -136,16 +167,16 @@ function updateUI(){
     bS.disabled=actionsUsed.atk>=1||over;
     bD.disabled=actionsUsed.def>=1; 
   } else { bA.disabled=true; bD.disabled=true; bS.disabled=true; }
+  
   let disc=getCarismaDiscount(), ci=document.getElementById('carisma-info');
   if(disc>0){ci.style.display='block';document.getElementById('carisma-discount').innerText=disc+'%';}
   else ci.style.display='none';
   renderBuffsList();
   
-  let pAtk = getPoderObj('atk'), pDef = getPoderObj('def');
-  let elAtk = document.getElementById('ui-tot-atk'); if(elAtk) elAtk.innerText = pAtk.total;
-  let elDef = document.getElementById('ui-tot-def'); if(elDef) elDef.innerText = pDef.total;
-  let ribAtk = document.getElementById('ribbon-atk'); if(ribAtk) ribAtk.innerText = pAtk.total;
-  let ribDef = document.getElementById('ribbon-def'); if(ribDef) ribDef.innerText = pDef.total;
+  let elAtk = document.getElementById('ui-tot-atk'); if(elAtk) elAtk.innerHTML = formatVal(pAtk, pendingStatAllocation==='FOR');
+  let elDef = document.getElementById('ui-tot-def'); if(elDef) elDef.innerHTML = formatVal(pDef, false);
+  let ribAtk = document.getElementById('ribbon-atk'); if(ribAtk) ribAtk.innerHTML = formatVal(pAtk, pendingStatAllocation==='FOR');
+  let ribDef = document.getElementById('ribbon-def'); if(ribDef) ribDef.innerHTML = formatVal(pDef, false);
   saveGame();
 }
 
@@ -203,7 +234,7 @@ function getPoderObj(type){
 
 function getMaxLoad()   {return 10+(getStat('FOR')*5)+getAccVal('kg')+getBuffVal('kg')+((player.level-1)*2);}
 function getCurrentLoad(){return player.inventory.reduce((s,i)=>{let w=i.weight||0;if(i.equipped&&i.type!=='use')w/=2;return s+w;},0);}
-function getCritThreshold(){return Math.max(15, 20 - Math.floor(getStat('SOR') / 2));}
+function getCritThreshold() { return Math.max(17, 20 - Math.floor(getStat('SOR') / 2)); }
 function getCarismaDiscount(){return Math.min(50,Math.floor(getStat('CAR')/2)*10);}
 
 function recalcMaxStats(){
@@ -239,7 +270,7 @@ function openBarModal(target){
   document.getElementById('btn-bar-sub').style.display=target==='exp'?'none':'block';
   showModal('modal-bar-action');
 }
-function executeBarAction(op){
+function executeBarAction(op){ if(player.isDead) return;
   let val=parseInt(document.getElementById('bar-val-input').value);
   if(isNaN(val)||val<=0) return;
   closeModal('modal-bar-action');
@@ -260,7 +291,7 @@ function executeBarAction(op){
 //// FIM BLOCO 05 ////
 
 //// INÍCIO BLOCO 06 - COMBATE E TURNOS ////
-function startTurn(){
+function startTurn(){ if(player.isDead) return;
   turnState='active'; actionsUsed={atk:0,pot:0,def:0};
   document.getElementById('main-dice').innerText='🎲';
   document.getElementById('free-dice-detail').innerText='';
@@ -269,7 +300,7 @@ function startTurn(){
   updateUI();
 }
 
-function endTurn(){
+function endTurn(){ if(player.isDead) return;
   let logs='';
   let cMax=getMaxLoad(), cCur=getCurrentLoad(), pct=cCur/cMax;
   
@@ -356,7 +387,7 @@ function triggerCritEffect(){
   document.body.classList.add('crit-flash'); setTimeout(()=>document.body.classList.remove('crit-flash'),800);
 }
 
-function actionAtk(){
+function actionAtk(){ if(player.isDead) return;
   let d=getD20(true); actionsUsed.atk++;
   let crit=d>=getCritThreshold();
   let p = getPoderObj('atk');
@@ -364,14 +395,17 @@ function actionAtk(){
   let critLabel=crit?` <span class="crit-badge">★ CRÍTICO!</span>`:'';
   spinDice('main-dice',d,crit);
   document.getElementById('free-dice-detail').innerText='';
-  document.getElementById('combat-log-main').innerHTML=
-    `⚔️ Ataque${critLabel}<br>Dado(${d}) + Poder Total(${p.total}) = <strong>${tot}</strong>`;
+  document.getElementById('combat-log-main').innerHTML =
+    `⚔️ Ataque${critLabel}<br>
+    <span style="font-size:17px;font-family:'Cinzel';font-weight:900;letter-spacing:0.5px;">
+      Dado(<span style="color:var(--gem-blue);">${d}</span>) + Poder(<span style="color:var(--ink-light);">${p.total}</span>) = <span style="color:var(--gem-red);font-size:20px;">${tot}</span>
+    </span>`;
   if(crit) triggerCritEffect();
   logAction('sys',0,`Atacou: ${tot}${crit?' (CRÍTICO)':''}`,false);
   updateUI();
 }
 
-function openDefModal(isReaction){
+function openDefModal(isReaction){ if(player.isDead) return;
   defIsReaction=isReaction;
   document.getElementById('def-title').innerText=isReaction?'🛡️ Defesa (Reação)':'🛡️ Defesa';
   document.getElementById('def-dice-display').innerText='...';
@@ -392,7 +426,7 @@ function openDefModal(isReaction){
   },500);
 }
 
-function applyDefDamage(){
+function applyDefDamage(){ if(player.isDead) return;
   let raw=parseInt(document.getElementById('def-damage-input').value);
   if(isNaN(raw)||raw<0) return;
   let real=Math.max(0,raw-defShieldTotal);
@@ -406,7 +440,7 @@ function applyDefDamage(){
   updateUI(); if(player.hp<=0) promptDeath();
 }
 
-function actionSkill(){
+function actionSkill(){ if(player.isDead) return;
   let cd=CLASSES_DATA[player.cls]||{};
   let cost=cd.cost||player.cost||10, skill=cd.skill||player.skill, desc=cd.desc||player.skillDesc;
   if(player.mp<cost) return customAlert("Sem Mana",`${skill} custa ${cost} Mana. Você tem ${player.mp}.`);
@@ -415,28 +449,83 @@ function actionSkill(){
   let d=getD20(true), crit=d>=getCritThreshold();
   spinDice('main-dice',d,crit);
   document.getElementById('free-dice-detail').innerText='';
-  document.getElementById('combat-log-main').innerHTML=
-    `🔥 <strong>${skill}</strong>${crit?'<span class="crit-badge" style="margin-left:6px;">★ CRÍTICO!</span>':''}<br><em style="font-size:11px;color:var(--ink-light);">${desc}</em><br>Dado: ${d} | Mana: −${cost}`;
+  let p = getPoderObj('atk');
+  let skillTot = d + p.total;
+  document.getElementById('combat-log-main').innerHTML =
+    `🔥 <strong>${skill}</strong>${crit ? '<span class="crit-badge" style="margin-left:6px;">★ CRÍTICO!</span>' : ''}<br>
+    <em style="font-size:11px;color:var(--ink-light);">${desc}</em><br>
+    <span style="font-size:17px;font-family:'Cinzel';font-weight:900;">
+      Dado(<span style="color:var(--gem-blue);">${d}</span>) + Poder(<span style="color:var(--ink-light);">${p.total}</span>) = <span style="color:var(--gem-red);font-size:20px;">${skillTot}</span>
+    </span><br>
+    <span style="font-size:12px;color:var(--ink-light);">Mana: −${cost}</span>`;
   if(crit) triggerCritEffect();
   logAction('mp',-cost,`Usou ${skill}`); updateUI();
   if(player.hp<=0) promptDeath();
 }
 
 function promptDeath(){
-  player.hp=0; player.isDead=true; saveGame();
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.style.opacity='0'; 
+    setTimeout(() => { m.style.display='none'; m.classList.remove('show'); }, 200);
+  });
+  lastAliveSnapshot = JSON.parse(JSON.stringify(player));
+  player.hp = 0; 
+  player.isDead = true; 
+  saveGame();
   document.getElementById('death-overlay').classList.add('show');
 }
-function closeDeathOverlay(){ document.getElementById('death-overlay').classList.remove('show'); }
-function revivePlayer(){ closeDeathOverlay(); requirePassword(()=>showModal('modal-revive')); }
-function confirmRevive(opt){
-  closeModal('modal-revive');
-  if(opt==='um')    player.hp=1;
-  else if(opt==='meio') player.hp=Math.max(1,Math.floor(player.maxHp*0.5));
-  else { player.hp=player.maxHp; player.mp=player.maxMp; }
-  player.isDead=false;
-  logAction('hp',player.hp,'Revivido pelo Mestre');
-  updateUI();
-  customAlert("⚕️ Revivido!",`${player.name} retorna ao combate com ${player.hp} HP!`);
+
+function revivePlayer(){ 
+  requirePassword(() => {
+    document.getElementById('death-overlay').classList.remove('show');
+    player.hp = 10;
+    player.isDead = false;
+    document.body.classList.add('low-hp-revive');
+    logAction('hp', 10, 'Revivido pelo Mestre');
+    updateUI();
+    customAlert("⚕️ Revivido!", `${player.name} retornou dos mortos com 10 HP!`);
+  }); 
+}
+
+function useRevivePotion() {
+  let potion = player.inventory.find(i => i.type === 'use' && i.name.toLowerCase().includes('ressuscitar'));
+  if (potion) {
+    customConfirm("🧪 Usar Poção", `Deseja usar a poção "${potion.name}" para reviver?`, () => {
+      player.inventory = player.inventory.filter(i => i.id !== potion.id);
+      document.getElementById('death-overlay').classList.remove('show');
+      player.hp = 10;
+      player.isDead = false;
+      document.body.classList.add('low-hp-revive');
+      logAction('hp', 10, `Revivido por ${potion.name}`);
+      updateUI();
+      customAlert("✨ Ressurreição!", `A poção trouxe ${player.name} de volta à vida!`);
+    });
+  } else {
+    customAlert("😔 Sem Poção", "Você não tem nenhuma poção de ressuscitar na mochila.");
+  }
+}
+
+function exportLastState() {
+  if(!lastAliveSnapshot) return customAlert("Erro", "Nenhum estado salvo encontrado.");
+  
+  // Cria uma cópia do snapshot e injeta 10 de HP para o personagem não voltar morto
+  let exportData = JSON.parse(JSON.stringify(lastAliveSnapshot));
+  exportData.hp = 10;
+  exportData.isDead = false;
+  
+  let code = btoa(encodeURIComponent(JSON.stringify(exportData)));
+  navigator.clipboard.writeText(code).then(() => {
+    alert("✅ Último estado salvo copiado para a área de transferência! (Personagem terá 10 HP)");
+  }).catch(() => {
+    prompt("Copie o código abaixo (Personagem terá 10 HP):", code);
+  });
+}
+
+function endGameDeath() {
+  customConfirm("🛑 Fim da Linha", "Tem certeza que deseja encerrar a partida? Seu personagem será apagado do navegador.", () => {
+    localStorage.removeItem('rpg_character');
+    window.location.href = 'index.html';
+  });
 }
 //// FIM BLOCO 06 ////
 
@@ -650,7 +739,46 @@ function saveManualEffect(){
 //// FIM BLOCO 08 ////
 
 //// INÍCIO BLOCO 09 - FICHA TÉCNICA ////
+function diffHTML(oldVal, newVal) {
+  return `<span style="color:#c62828;text-decoration:line-through;font-size:11px;">${oldVal}</span>` +
+         `<span style="color:#aaa;font-size:11px;"> → </span>` +
+         `<span style="color:#2e7d32;font-weight:900;font-size:13px;">${newVal}</span>`;
+}
+
+function getStatPreview(stat) {
+  let next = player.finalStats[stat] + 1;
+  let preview = {};
+  if (stat === 'VIT') {
+    let newMaxHp = 20 + (next * 3) + getAccVal('hp') + getBuffVal('hp_max') + ((player.level - 1) * 2);
+    preview.maxHp = { old: player.maxHp, new: newMaxHp };
+  }
+  if (stat === 'INT') {
+    let newMaxMp = 15 + (next * 2) + getAccVal('mp') + getBuffVal('mp_max') + (player.level - 1);
+    preview.maxMp = { old: player.maxMp, new: newMaxMp };
+  }
+  if (stat === 'FOR') {
+    preview.maxLoad = { old: getMaxLoad(), new: 10 + (next * 5) + getAccVal('kg') + getBuffVal('kg') + ((player.level - 1) * 2) };
+    let p = getPoderObj('atk');
+    preview.atk = { old: p.total, new: p.total + 1 };
+  }
+  if (stat === 'SOR') {
+    let oldC = getCritThreshold();
+    let newC = Math.max(17, 20 - Math.floor((getStat('SOR') + 1) / 2));
+    if (newC !== oldC) preview.crit = { old: oldC, new: newC };
+  }
+  if (stat === 'CAR') {
+    let oldD = getCarismaDiscount();
+    let newD = Math.min(50, Math.floor((getStat('CAR') + 1) / 2) * 10);
+    if (newD !== oldD) preview.discount = { old: oldD, new: newD };
+  }
+  if (stat === 'AGI') {
+    preview.agi = { old: getStat('AGI'), new: getStat('AGI') + 1 };
+  }
+  return preview;
+}
+
 function renderFicha(){
+  let preview = pendingStatAllocation ? getStatPreview(pendingStatAllocation) : {};
   document.getElementById('ficha-pers').innerText=player.personality||player.name;
   document.getElementById('ficha-desc').innerText=`"${player.personalityDesc||player.desc||'Sem descrição.'}"`;
   document.getElementById('attr-free-points').innerText=player.freePoints;
@@ -664,7 +792,8 @@ function renderFicha(){
     let buffV = getBuffVal(s);
     let finalV = baseV + buffV + (sel?1:0);
     let buffStr = buffV > 0 ? `<sup style="color:var(--gem-green);font-size:10px;">+${buffV}</sup>` : buffV < 0 ? `<sup style="color:var(--gem-red);font-size:10px;">${buffV}</sup>` : '';
-    
+    let valDisplay = sel ? diffHTML(finalV - 1, finalV) : `${finalV}${buffStr}`;
+
     let pi='';
     if(sel&&s==='FOR') pi=`<span style="color:var(--gem-green);font-size:10px;margin-left:6px;">💪→${10+(finalV)*5+getAccVal('kg')+getBuffVal('kg')+(player.level-1)*2}kg</span>`;
     if(sel&&s==='VIT') pi=`<span style="color:var(--gem-green);font-size:10px;margin-left:6px;">❤️→${20+(finalV)*3+getAccVal('hp')+getBuffVal('hp_max')+(player.level-1)*2}HP</span>`;
@@ -672,12 +801,12 @@ function renderFicha(){
     if(sel&&s==='SOR') pi=`<span style="color:var(--gem-green);font-size:10px;margin-left:6px;">🍀→crít.${Math.max(15,20-(finalV))}+</span>`;
     
     let btn=player.freePoints>0?(sel
-      ?`<button class="btn btn-blue" style="width:32px;height:32px;padding:0;border-radius:50%;font-size:13px;" onclick="event.stopPropagation();pendingStatAllocation=null;renderFicha();">✓</button>`
-      :`<button class="btn btn-outline" style="width:32px;height:32px;padding:0;border-radius:50%;font-size:15px;" onclick="event.stopPropagation();pendingStatAllocation='${s}';renderFicha();">+</button>`):'';
+          ?`<button class="btn btn-blue" style="width:32px;height:32px;padding:0;border-radius:50%;font-size:13px;" onclick="event.stopPropagation();pendingStatAllocation=null;renderFicha();updateUI();">✓</button>`
+          :`<button class="btn btn-outline" style="width:32px;height:32px;padding:0;border-radius:50%;font-size:15px;" onclick="event.stopPropagation();pendingStatAllocation='${s}';renderFicha();updateUI();">+</button>`):'';
     list.innerHTML+=`<div class="list-item ${sel?'equipped':''}" style="margin-bottom:5px;padding:10px 12px;cursor:pointer;" onclick="showAttrInfo('${s}')">
       <div><div style="font-weight:bold;font-size:13px;">${ATTR_INFO[s]?ATTR_INFO[s].icon+' ':''} ${STAT_NAMES[s]}${pi}</div></div>
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:18px;font-weight:900;font-family:'Cinzel';${sel||buffV!==0?'color:var(--gem-blue);':''}">${finalV}${buffStr}</span>${btn}
+        <span style="font-size:18px;font-weight:900;font-family:'Cinzel';${sel||buffV!==0?'color:var(--gem-blue);':''}">${valDisplay}</span>${btn}
       </div></div>`;
   }
   document.getElementById('btn-confirm-attr').style.display=pendingStatAllocation?'block':'none';
@@ -686,14 +815,23 @@ function renderFicha(){
   document.getElementById('sk-desc').innerText=cd.desc||player.skillDesc||'—';
   document.getElementById('sk-dano').innerText=player.danoPronto||'—';
   let m=document.getElementById('mecanicas-list'); m.innerHTML='';
-  [{icon:'⚔️',name:'Bônus de Ataque',val:`+${getStat('FOR')} (Força)`,desc:'Somado ao dado em ataques físicos'},
+  [{icon:'⚔️',name:'Bônus de Ataque',
+    val: preview.atk ? diffHTML('+'+preview.atk.old, '+'+preview.atk.new) : `+${getStat('FOR')} (Força)`,
+    desc:'Somado ao dado em ataques físicos'},
    {icon:'🛡️',name:'Bônus de Defesa',val:`Nível ${player.level}`,desc:'Somado ao dado de defesa + armaduras'},
-   {icon:'🍀',name:'Acerto Crítico',  val:`${getCritThreshold()}–20`,desc:`Rol ${getCritThreshold()}+ = CRÍTICO! (SOR: ${getStat('SOR')})`},
-   {icon:'🗣️',name:'Desconto Loja',   val:`${getCarismaDiscount()}%`,desc:`CAR ${getStat('CAR')} → ${getCarismaDiscount()}% de desconto`},
-   {icon:'💪',name:'Carga Máxima',    val:`${getMaxLoad()}kg`,desc:'10 + (FOR×5) + bônus de nível'},
-   {icon:'💧',name:'Mana Máxima',     val:`${player.maxMp}MP`,desc:'15 + (INT×2) + bônus de nível'},
+   {icon:'🍀',name:'Acerto Crítico',
+    val: preview.crit ? diffHTML(preview.crit.old+'–20', preview.crit.new+'–20') : `${getCritThreshold()}–20`,
+    desc:`Rol ${getCritThreshold()}+ = CRÍTICO! (SOR: ${getStat('SOR')})`},
+   {icon:'🗣️',name:'Desconto Loja',
+    val: preview.discount ? diffHTML(preview.discount.old+'%', preview.discount.new+'%') : `${getCarismaDiscount()}%`,
+    desc:`CAR ${getStat('CAR')} → ${getCarismaDiscount()}% de desconto`},
+   {icon:'💪',name:'Carga Máxima',
+    val: preview.maxLoad ? diffHTML(preview.maxLoad.old+'kg', preview.maxLoad.new+'kg') : `${getMaxLoad()}kg`,
+    desc:'10 + (FOR×5) + bônus de nível'},
+   {icon:'💧',name:'Mana Máxima',
+    val: preview.maxMp ? diffHTML(preview.maxMp.old+'MP', preview.maxMp.new+'MP') : `${player.maxMp}MP`,
+    desc:'15 + (INT×2) + bônus de nível'},
   ].forEach(r=>{m.innerHTML+=`<div class="ficha-stat-row"><div><div style="font-weight:bold;font-size:13px;">${r.icon} ${r.name}</div><div style="font-size:11px;color:var(--ink-light);">${r.desc}</div></div><div class="ficha-stat-val" style="font-size:14px;min-width:50px;text-align:right;">${r.val}</div></div>`;});
-  let na=document.getElementById('notes-area'); if(na&&document.activeElement!==na) na.value=player.notes||'';
 }
 
 function showAttrInfo(stat){
@@ -710,7 +848,6 @@ function confirmStatPoint(){
     pendingStatAllocation=null; recalcMaxStats(); renderFicha(); updateUI();
   }
 }
-function saveNotes(){ player.notes=document.getElementById('notes-area').value; saveGame(); }
 
 function showStatInfo(stat){
   let infos={
@@ -780,3 +917,115 @@ function resetData(){
   customConfirm("💀 Morte Definitiva","Apagar este personagem PARA SEMPRE?",()=>{requirePassword(()=>{localStorage.removeItem('rpg_character');location.reload();});});
 }
 //// FIM BLOCO 10 ////
+
+//// INÍCIO BLOCO 11 - SISTEMA DE ANOTAÇÕES ////
+function openNoteSearch() {
+  let wrap = document.getElementById('note-search-wrap');
+  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+  if (wrap.style.display === 'block') document.getElementById('note-search-input').focus();
+  notePage = 1;
+  renderNotesList();
+}
+
+function setNoteSort(type) {
+  noteSort = type;
+  notePage = 1;
+  document.getElementById('sort-newest').classList.toggle('active', type === 'newest');
+  document.getElementById('sort-oldest').classList.toggle('active', type === 'oldest');
+  renderNotesList();
+}
+
+function changeNotePage(delta) {
+  notePage += delta;
+  renderNotesList();
+}
+
+function openNoteModal(id) {
+  editingNoteId = id;
+  let note = id ? player.notes.find(n => n.id === id) : null;
+  document.getElementById('note-edit-title').innerText = note ? '✏️ Editar Anotação' : '📝 Nova Anotação';
+  document.getElementById('note-input-title').value = note ? note.title : '';
+  document.getElementById('note-input-body').value = note ? note.body : '';
+  showModal('modal-note-edit');
+}
+
+function saveNote() {
+  let title = document.getElementById('note-input-title').value.trim();
+  let body  = document.getElementById('note-input-body').value.trim();
+  if (!body) return customAlert("Atenção", "Escreva algo na anotação antes de salvar.");
+  if (!title) title = 'Sem título';
+  if (editingNoteId) {
+    let note = player.notes.find(n => n.id === editingNoteId);
+    if (note) { note.title = title; note.body = body; note.updatedAt = Date.now(); }
+  } else {
+    player.notes.unshift({ id: Date.now(), title, body, createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  saveGame(); closeModal('modal-note-edit'); renderNotesList();
+}
+
+function deleteNote(id) {
+  customConfirm("🗑️ Excluir?", "Esta anotação será apagada permanentemente.", () => {
+    player.notes = player.notes.filter(n => n.id !== id);
+    saveGame(); closeModal('modal-note-view'); renderNotesList();
+  });
+}
+
+function openNoteView(id) {
+  let note = player.notes.find(n => n.id === id); if (!note) return;
+  document.getElementById('note-view-title').innerText = note.title || 'Sem título';
+  document.getElementById('note-view-body').innerText = note.body;
+  document.getElementById('note-view-edit-btn').onclick   = () => { closeModal('modal-note-view'); openNoteModal(id); };
+  document.getElementById('note-view-delete-btn').onclick = () => deleteNote(id);
+  showModal('modal-note-view');
+}
+
+function renderNotesList() {
+  let search = (document.getElementById('note-search-input')?.value || '').toLowerCase();
+  let list = (player.notes || [])
+    .filter(n => !search || n.title.toLowerCase().includes(search) || n.body.toLowerCase().includes(search))
+    .sort((a, b) => noteSort === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt);
+  
+  let container = document.getElementById('notes-list'); if (!container) return;
+  
+  if (!list.length) {
+    container.innerHTML = `<p style="text-align:center;color:#999;padding:20px;font-size:13px;">${search ? 'Nenhum registro encontrado.' : 'Seu diário está vazio. Clique em + Nova para começar a escrever sua lenda.'}</p>`;
+    return;
+  }
+
+  const ITEMS_PER_PAGE = 10;
+  let totalPages = Math.ceil(list.length / ITEMS_PER_PAGE);
+  if (notePage > totalPages) notePage = totalPages;
+  if (notePage < 1) notePage = 1;
+
+  let start = (notePage - 1) * ITEMS_PER_PAGE;
+  let paginatedList = list.slice(start, start + ITEMS_PER_PAGE);
+
+  const LIMIT = 160;
+  let html = paginatedList.map(note => {
+    let isLong = note.body.length > LIMIT;
+    let preview = isLong ? note.body.substring(0, LIMIT) + '...' : note.body;
+    
+    let d = new Date(note.createdAt);
+    let dateStr = `${d.getDate()}/${d.getMonth()+1} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    
+    return `<div class="note-card" onclick="openNoteView(${note.id})" style="cursor:pointer;">
+      <div class="note-card-header">
+        <span class="note-card-title">${note.title || 'Sem título'}</span>
+        <span class="note-card-date">${dateStr} <span style="font-size:12px; margin-left:4px; opacity:0.6;">✏️ ❌</span></span>
+      </div>
+      <div class="note-card-body">${preview.replace(/\n/g, '<br>')}</div>
+      ${isLong ? `<div class="note-card-more">Toque para ler mais ▼</div>` : ''}
+    </div>`;
+  }).join('');
+
+  if (totalPages > 1) {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:12px; font-weight:bold; color:var(--ink-light);">
+      <button class="btn-filter" style="width:auto; padding:6px 12px; opacity:${notePage === 1 ? '0.4' : '1'}" onclick="changeNotePage(-1)" ${notePage === 1 ? 'disabled' : ''}>◀ Ant</button>
+      <span>Pág ${notePage} / ${totalPages}</span>
+      <button class="btn-filter" style="width:auto; padding:6px 12px; opacity:${notePage === totalPages ? '0.4' : '1'}" onclick="changeNotePage(1)" ${notePage === totalPages ? 'disabled' : ''}>Próx ▶</button>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+//// FIM BLOCO 11 ////
