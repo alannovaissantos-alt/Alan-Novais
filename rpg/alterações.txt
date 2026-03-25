@@ -15,7 +15,7 @@ Você está recebendo este arquivo junto com os arquivos do projeto (`index.html
 3. Aguardar o usuário dizer "ok" ou reportar algum problema antes de continuar
 
 REGRA ESTRITA DE FORMATAÇÃO DE CÓDIGO (LEIA ANTES DE ESCREVER)
-Você NUNCA deve reescrever o arquivo inteiro. Você deve trabalhar de forma cirúrgica para que o usuário possa usar o "Localizar e Substituir" do Notepad++. Use EXATAMENTE este formato para cada alteração:
+Você NUNCA deve reescrever o arquivo inteiro. Você deve trabalhar de forma cirúrgica para que o usuário possa usar o "Localizar e Substituir" do Notepad++. Use EXATAMENTE este formato para cada alteração no modelo estilo Plaintext:
 
 ```
 ARQUIVO: [nome do arquivo]
@@ -715,63 +715,6 @@ let mecanicas = [
 
 ---
 
-### SESSÃO 8 — Log de Combate + Confirmação de Turno
-
-**Contexto:** O log de combate mostra só a última ação. Encerrar turno não pede confirmação.
-
-**O que fazer:**
-
-Adicionar variável global no topo do `mestre.js`:
-```js
-let combatLog = [];
-```
-
-Em `startTurn()`, após `turnState='active'`, adicionar:
-```js
-combatLog = [];
-```
-
-Criar função de renderização do log:
-```js
-function pushCombatLog(html) {
-  combatLog.unshift(html);
-  if (combatLog.length > 4) combatLog.pop();
-  let logEl = document.getElementById('combat-log-main');
-  logEl.innerHTML = combatLog.map((entry, i) =>
-    `<div style="opacity:${i === 0 ? 1 : 0.45};font-size:${i === 0 ? '14px' : '12px'};padding:2px 0;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.07);margin-top:4px;' : ''}">${entry}</div>`
-  ).join('');
-}
-```
-
-Em `actionAtk()`, substituir a linha `document.getElementById('combat-log-main').innerHTML=...` por:
-```js
-pushCombatLog(`⚔️ Ataque${critLabel} — <span style="font-family:'Cinzel';font-weight:900;">Dado(${d})+Poder(${p.total})=<span style="color:var(--gem-red);">${tot}</span></span>`);
-```
-
-Em `actionSkill()`, fazer o mesmo padrão com o nome da habilidade.
-
-Em `openDefModal()`, após calcular `defShieldTotal`, adicionar:
-```js
-pushCombatLog(`🛡️ Defesa — Escudo final: <strong>${defShieldTotal}</strong>`);
-```
-
-Em `rollFreeDice()`, substituir a linha do `combat-log-main` por:
-```js
-pushCombatLog(crit ? `🎲 D20: <strong style="color:var(--gold);">${d} ★ CRÍTICO!</strong>` : `🎲 D20: <strong>${d}</strong>`);
-```
-
-No botão `btn-end-turn` do `commestre.html`, substituir `onclick="endTurn()"` por:
-```js
-onclick="customConfirm('⚔️ Encerrar Turno?','Confirmar o fim do turno? Efeitos e sobrecarga serão processados.',()=>endTurn())"
-```
-
-**Testar:**
-- Fazer 3 ações no turno → as 3 devem aparecer empilhadas, mais recente no topo em destaque
-- 4ª ação → a mais antiga some
-- Botão Encerrar Turno → pede confirmação antes de processar
-
----
-
 ### SESSÃO 9 — Sons (Web Audio API)
 
 **Contexto:** Sem feedback sonoro nenhum. Implementar 4 sons simples sem arquivos externos.
@@ -978,9 +921,8 @@ localStorage.removeItem('rpg_turn_state');
 - [x] Sessão 4 — Regra de Crítico
 - [x] Sessão 5 — Sistema de Anotações
 - [x] Sessão 6 — Diff Visual de Atributos
-- [ ] Sessão 7 — Mecânicas Dinâmicas
-- [ ] Sessão 8 — Log de Combate + Confirmação
-- [ ] Sessão 9 — Sons
+- [x] Sessão 7 — Mecânicas Dinâmicas
+- [x] Sessão 9 — Sons
 - [ ] Sessão 10 — Filtros da Mochila
 - [ ] Sessão 11 — PWA
 - [ ] Sessão 12 — Persistir Estado do Turno

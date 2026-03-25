@@ -88,6 +88,7 @@ function customAlert(t,txt){document.getElementById('alert-title').innerText=t;d
 function customConfirm(t,txt,cb){document.getElementById('confirm-title').innerText=t;document.getElementById('confirm-msg').innerHTML=txt;document.getElementById('btn-confirm-action').onclick=()=>{cb();closeModal('modal-confirm');};showModal('modal-confirm');}
 function showInfo(t,msg){document.getElementById('info-title').innerText=t;document.getElementById('info-msg').innerHTML=msg;showModal('modal-info');}
 function spinDice(elId,val,crit=false){
+  playSound('dice');
   let e=document.getElementById(elId); e.innerText=val; e.style.display='block';
   e.classList.remove('spin','critico'); void e.offsetWidth; e.classList.add('spin');
   if(crit) e.classList.add('critico');
@@ -280,7 +281,7 @@ function executeBarAction(op){ if(player.isDead) return;
     checkLevelUp(); // <- Chama a nova função
   } else if(activeBarTarget==='hp'){
     if(op==='add'){player.hp=Math.min(player.maxHp,player.hp+val);logAction('hp',val,`Curou ${val} HP`);}
-    if(op==='sub'){player.hp-=val;logAction('hp',-val,`Sofreu ${val} dano`);}
+    if(op==='sub'){playSound('hit');player.hp-=val;logAction('hp',-val,`Sofreu ${val} dano`);}
   } else if(activeBarTarget==='mp'){
     if(op==='add'){player.mp=Math.min(player.maxMp,player.mp+val);logAction('mp',val,`Recuperou ${val} Mana`);}
     if(op==='sub'){player.mp=Math.max(0,player.mp-val);logAction('mp',-val,`Gastou ${val} Mana`);}
@@ -383,6 +384,7 @@ function getD20(limitW){
 }
 
 function triggerCritEffect(){
+  playSound('crit');
   document.body.classList.remove('crit-flash'); void document.body.offsetWidth;
   document.body.classList.add('crit-flash'); setTimeout(()=>document.body.classList.remove('crit-flash'),800);
 }
@@ -432,6 +434,7 @@ function applyDefDamage(){ if(player.isDead) return;
   let real=Math.max(0,raw-defShieldTotal);
   closeModal('modal-def');
   if(real>0){
+    playSound('hit');
     player.hp-=real; logAction('hp',-real,`Sofreu ${real} dano após defesa`);
     customAlert("💥 Dano Recebido",`Ataque Monstro: ${raw}<br>Seu Escudo: ${defShieldTotal}<br><strong>Dano real que passou: ${real} HP</strong>`);
   } else {
@@ -472,6 +475,7 @@ function promptDeath(){
   player.hp = 0; 
   player.isDead = true; 
   saveGame();
+  playSound('death');
   document.getElementById('death-overlay').classList.add('show');
 }
 
@@ -1029,3 +1033,36 @@ function renderNotesList() {
   container.innerHTML = html;
 }
 //// FIM BLOCO 11 ////
+
+//// INÍCIO BLOCO 12 - SONS ////
+function playSound(type) {
+  try {
+    let ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let g = ctx.createGain();
+    g.connect(ctx.destination);
+    if (type === 'dice') {
+      let o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 300;
+      o.connect(g); g.gain.setValueAtTime(0.15, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      o.start(); o.stop(ctx.currentTime + 0.08);
+    } else if (type === 'crit') {
+      [523, 784].forEach((freq, i) => {
+        let o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = freq;
+        let gn = ctx.createGain(); o.connect(gn); gn.connect(ctx.destination);
+        let t = ctx.currentTime + i * 0.18;
+        gn.gain.setValueAtTime(0.25, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        o.start(t); o.stop(t + 0.3);
+      });
+    } else if (type === 'hit') {
+      let o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 80;
+      o.connect(g); g.gain.setValueAtTime(0.3, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      o.start(); o.stop(ctx.currentTime + 0.3);
+    } else if (type === 'death') {
+      let o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(200, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.9);
+      o.connect(g); g.gain.setValueAtTime(0.3, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+      o.start(); o.stop(ctx.currentTime + 0.9);
+    }
+    setTimeout(() => ctx.close(), 1500);
+  } catch(e) {}
+}
+//// FIM BLOCO 12 ////
