@@ -1,471 +1,105 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RPG - Painel do Jogador</title>
-<link rel="stylesheet" href="mestre.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alan Novais LAB | Mudamos de Endereço</title>
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230047ab'/%3E%3Ctext x='50' y='65' font-family='Inter, sans-serif' font-size='45' font-weight='800' fill='%23ffffff' text-anchor='middle'%3EAN%3C/text%3E%3C/svg%3E">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #0f172a; /* Dark Mode profundo */
+            --card: #1e293b;
+            --text: #f8fafc;
+            --blue-mica: #0047ab; /* Cor oficial Alan Novais */
+            --blue-hover: #1e40af;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            text-align: center;
+        }
+
+        .container {
+            background-color: var(--card);
+            padding: 50px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            max-width: 450px;
+            border: 1px solid #334155;
+        }
+
+        .logo-badge {
+            background-color: var(--blue-mica);
+            color: white;
+            font-weight: 800;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        h1 { font-size: 1.8rem; margin-bottom: 15px; }
+        p { color: #94a3b8; margin-bottom: 30px; line-height: 1.5; }
+
+        .btn {
+            background-color: var(--blue-mica);
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 700;
+            display: inline-block;
+            transition: 0.3s;
+        }
+
+        .btn:hover {
+            background-color: var(--blue-hover);
+            transform: scale(1.05);
+        }
+
+        #timer { font-weight: 800; color: var(--blue-mica); }
+    </style>
 </head>
 <body>
 
-<!-- MORTE OVERLAY — bloqueia tudo enquanto isDead=true -->
-<div id="death-overlay">
-  <div style="font-size:70px;margin-bottom:10px;">💀</div>
-  <h2 style="font-family:'Cinzel';font-size:26px;color:var(--gold);margin:0 0 10px;">CAIU EM COMBATE</h2>
-  <p style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:25px;line-height:1.8;">Seu HP chegou a 0.<br>O seu destino agora está nas mãos do grupo.</p>
-  <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:260px;">
-    <button class="btn btn-gold" onclick="revivePlayer()">⚕️ REVIVER (Mestre)</button>
-    <button class="btn btn-blue" onclick="useRevivePotion()">🧪 POÇÃO DE RESSUSCITAR</button>
-    <button class="btn btn-outline" style="color:white;border-color:rgba(255,255,255,0.4);" onclick="exportLastState()">💾 EXPORTAR ÚLTIMO ESTADO</button>
-    <button class="btn btn-red" onclick="endGameDeath()">🛑 ENCERRAR PARTIDA</button>
-  </div>
-</div>
+    <div class="container">
+        <div class="logo-badge">ALAN NOVAIS LAB</div>
+        <h1>Estamos de Casa Nova!</h1>
+        <p>O sistema agora está centralizado na Vercel para melhor performance e recursos.</p>
+        
+        <a href="https://alannovais.vercel.app" class="btn">Ir para o Novo Site</a>
 
-<div class="app-container" id="app">
-
-  <div class="top-bar">
-    <div class="top-gold" onclick="switchTab('mochila')">💰 <span id="ui-gold">0</span>G</div>
-    <button class="btn-gear" onclick="openMestreMenu()">⚙️</button>
-  </div>
-
-  <div class="game-header">
-    <h2 id="ui-name">Lenda</h2>
-    <p id="ui-class-line" onclick="showClassInfo()"><span id="ui-class">Classe</span> | Nv. <span id="ui-level">1</span></p>
-  </div>
-
-  <div class="status-ribbon" id="status-ribbon">
-    <div class="ribbon-item" onclick="openBarModal('hp')">❤️ <span id="ribbon-hp">20/20</span></div>
-    <div class="ribbon-item" onclick="openBarModal('mp')">💧 <span id="ribbon-mp">15/15</span></div>
-    <div class="ribbon-item" onclick="showStatInfo('carga')">💪 <span id="ribbon-carga">0/10kg</span></div>
-    <div class="ribbon-item" onclick="showPoderDetail('atk')">⚔️ <span id="ribbon-atk">0</span></div>
-    <div class="ribbon-item" onclick="showPoderDetail('def')">🛡️ <span id="ribbon-def">0</span></div>
-  </div>
-
-  <div class="bars-area" id="bars-combat">
-    <div class="interactive-bar-wrap" onclick="openBarModal('hp')">
-      <div class="bar-labels">
-        <span id="lbl-hp" onclick="event.stopPropagation();showStatInfo('hp')">❤️ Vida (HP)</span>
-        <span id="txt-hp">20/20</span>
-      </div>
-      <div class="bar-container"><div class="bar-fill bg-hp" id="bar-hp" style="width:100%;"></div></div>
-    </div>
-    <div class="interactive-bar-wrap" onclick="openBarModal('mp')">
-      <div class="bar-labels">
-        <span id="lbl-mp" onclick="event.stopPropagation();showStatInfo('mp')">💧 Mana (MP)</span>
-        <span id="txt-mp">15/15</span>
-      </div>
-      <div class="bar-container"><div class="bar-fill bg-mp" id="bar-mp" style="width:100%;"></div></div>
-    </div>
-  </div>
-
-  <div class="bars-area" id="bars-exp" style="display:none;">
-    <div class="interactive-bar-wrap" onclick="openBarModal('exp')">
-      <div class="bar-labels"><span>✨ Experiência</span><span id="txt-exp">0/100</span></div>
-      <div class="bar-container"><div class="bar-fill bg-exp" id="bar-exp" style="width:0%;"></div></div>
-    </div>
-  </div>
-
-  <div class="bars-area" id="bars-carga" style="display:none;">
-    <div class="interactive-bar-wrap" style="cursor:default;">
-      <div class="bar-labels">
-        <span id="lbl-carga" onclick="showStatInfo('carga')" style="cursor:pointer;">💪 Carga/Peso</span>
-        <span id="txt-carga">0/10kg</span>
-      </div>
-      <div id="warn-carga" style="font-size:11px;text-align:right;color:var(--gem-red);display:none;"></div>
-    </div>
-  </div>
-
-  <!-- ===== TAB FICHA ===== -->
-  <div id="tab-ficha" class="tab-content">
-    <div style="text-align:center;margin-bottom:12px;">
-      <div style="font-size:36px;">🎭</div>
-      <h3 style="margin:5px 0 2px;" id="ficha-pers">Personalidade</h3>
-      <p style="font-size:12px;font-style:italic;color:var(--ink-light);margin:0;" id="ficha-desc"></p>
-    </div>
-    <div id="level-up-banner" style="display:none;">
-      <div style="font-weight:900;font-size:15px;">✨ PONTOS DISPONÍVEIS!</div>
-      <div>Pontos Livres: <strong id="attr-free-points">0</strong></div>
-    </div>
-    <h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin-bottom:8px;">Atributos Base</h3>
-    <div id="attributes-list"></div>
-    <button id="btn-confirm-attr" class="btn btn-primary" style="display:none;margin-top:8px;" onclick="confirmStatPoint()">✅ Confirmar Distribuição</button>
-    <div class="skill-card" id="skill-card-ficha">
-      <span class="skill-card-title" id="sk-name">Habilidade</span>
-      <div class="skill-card-desc" id="sk-desc">—</div>
-      <div class="skill-card-dano" id="sk-dano">—</div>
-    </div>
-    <h3 style="font-size:14px;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:5px;margin:15px 0 8px;">Mecânicas</h3>
-    <div id="mecanicas-list"></div>
+        <p style="margin-top: 30px; font-size: 0.85rem;">
+            Você será redirecionado automaticamente em <span id="timer">5</span> segundos...
+        </p>
     </div>
 
-  <!-- ===== TAB COMBATE ===== -->
-  <div id="tab-combate" class="tab-content active">
+    <script>
+        let timeLeft = 5;
+        const timerElement = document.getElementById('timer');
+        const targetUrl = "https://alannovais.vercel.app";
 
-    <div id="wait-overlay">
-      <div class="wait-title">⏳ EM ESPERA</div>
-      <p style="font-size:13px;margin-bottom:15px;">O seu turno ainda não começou.</p>
-      <div style="background:rgba(255,255,255,0.1);padding:15px;border-radius:12px;width:100%;margin-bottom:12px;">
-        <button class="btn btn-outline" style="color:white;border-color:var(--gold);" onclick="rollInitiative()">🎲 DADO DE INICIATIVA</button>
-        <div class="dice-number" id="init-dice" style="color:var(--gold);display:none;font-size:40px;">🎲</div>
-        <div id="init-detail" style="font-size:12px;display:none;margin-top:5px;color:white;">
-          Dado: <span id="init-d">0</span> | AGI: <span id="init-agi">0</span><br>
-          <strong style="font-size:16px;">TOTAL: <span id="init-tot">0</span></strong>
-        </div>
-      </div>
-      <!-- FIX: defesa na tela de espera NÃO gasta ação (isReaction=true) -->
-      <button class="btn btn-blue" style="margin-bottom:12px;" onclick="openDefModal(true)">🛡️ DEFESA RÁPIDA (Reação)</button>
-      <button class="btn btn-red" style="padding:16px;font-size:15px;" onclick="startTurn()">🔥 INICIAR MEU TURNO</button>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
-      <strong style="font-size:13px;">Efeitos Ativos:</strong>
-      <button class="btn btn-outline" style="padding:4px 10px;font-size:11px;width:auto;color:#8e24aa;border-color:#8e24aa;" onclick="openAddEffectModal()">+ Efeito</button>
-    </div>
-    <div id="active-buffs-container" style="margin-top:8px;display:flex;flex-direction:column;gap:5px;margin-bottom:10px;"></div>
-
-    <div style="display:flex; justify-content:space-around; background:rgba(0,0,0,0.03); padding:10px; border-radius:12px; margin-bottom:12px; border:1px solid rgba(0,0,0,0.08); box-shadow:inset 0 2px 5px rgba(0,0,0,0.02);">
-      <div style="text-align:center; cursor:pointer; width:100%;" onclick="showPoderDetail('atk')">
-        <div style="font-size:11px; color:var(--ink-light); font-weight:bold; text-transform:uppercase;">Ataque Total ℹ️</div>
-        <div style="font-size:22px; font-weight:900; color:var(--gem-red); font-family:'Cinzel';">⚔️ <span id="ui-tot-atk">0</span></div>
-      </div>
-      <div style="width:1px; background:rgba(0,0,0,0.1); margin:0 10px;"></div>
-      <div style="text-align:center; cursor:pointer; width:100%;" onclick="showPoderDetail('def')">
-        <div style="font-size:11px; color:var(--ink-light); font-weight:bold; text-transform:uppercase;">Escudo Total ℹ️</div>
-        <div style="font-size:22px; font-weight:900; color:var(--gem-blue); font-family:'Cinzel';">🛡️ <span id="ui-tot-def">0</span></div>
-      </div>
-    </div>
-
-    <div class="dice-area">
-      <button class="btn btn-outline" style="position:absolute;top:8px;right:8px;width:auto;padding:5px 10px;font-size:10px;" onclick="rollFreeDice()">🎲 D20</button>
-      <!-- FIX: dado volta pra 🎲 ao trocar de aba/turno. Detalhe AGI embaixo -->
-      <div class="dice-number" id="main-dice">🎲</div><div id="free-dice-detail"></div>
-      <div id="combat-log-main">Aguardando ação...</div>
-      <button class="btn btn-red" id="btn-atk" onclick="actionAtk()" disabled>
-        ⚔️ ATACAR <span style="font-size:10px;background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:8px;margin-left:5px;" id="count-atk">0/1</span>
-      </button>
-      <div class="combat-grid">
-        <!-- FIX: defesa durante turno gasta ação (isReaction=false), mas tem controle de uso único -->
-        <button class="btn btn-blue" id="btn-def" onclick="openDefModal(false)" disabled>🛡️ DEFESA</button>
-        <button class="btn btn-primary" id="btn-skill" onclick="actionSkill()" disabled>🔥 HABILIDADE</button>
-      </div>
-    </div>
-    <!-- LOG REMOVIDO da aba combate — está só no Histórico -->
-    <button class="btn btn-end-turn" onclick="endTurn()">🛑 ENCERRAR TURNO</button>
-  </div>
-
-  <!-- ===== TAB MOCHILA ===== -->
-  <div id="tab-mochila" class="tab-content">
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button class="btn btn-green" onclick="openAddItemModal('add')">📦 Achar</button>
-      <button class="btn btn-gold" onclick="openAddItemModal('buy')">🛒 Comprar</button>
-      <button class="btn btn-blue" onclick="openPotionSelector()">🧪 Beber</button>
-    </div>
-    <div id="carisma-info" style="font-size:11px;background:rgba(56,142,60,0.1);border-left:3px solid var(--gem-green);padding:5px 10px;border-radius:6px;margin-bottom:10px;display:none;">
-      🗣️ Seu Carisma dá <strong id="carisma-discount">0%</strong> de desconto na loja!
-    </div>
-    <div id="inventory-list"></div>
-  </div>
-
-  <div id="tab-diario" class="tab-content">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-      <h2 style="font-family:'Cinzel';margin:0;font-size:22px;color:var(--ink);">📖 Diário</h2>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:11px;" onclick="openNoteSearch()">🔍 Buscar</button>
-        <button class="btn btn-primary" style="width:auto;padding:6px 12px;font-size:11px;" onclick="openNoteModal(null)">+ Nova</button>
-      </div>
-    </div>
-    <div id="note-search-wrap" style="display:none;margin-bottom:12px;">
-      <input type="text" id="note-search-input" placeholder="Buscar no diário..." oninput="renderNotesList()" style="margin:0;">
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center;">
-      <span style="font-size:11px;color:var(--ink-light);font-weight:bold;">Ordem:</span>
-      <button class="btn-filter active" id="sort-newest" onclick="setNoteSort('newest')">Mais recentes</button>
-      <button class="btn-filter" id="sort-oldest" onclick="setNoteSort('oldest')">Mais antigas</button>
-    </div>
-    <div id="notes-list"></div>
-  </div>
-
-  <div class="bottom-nav">
-    <div class="nav-item" id="nav-ficha" onclick="switchTab('ficha')"><span class="nav-icon">📊</span> Ficha</div>
-    <div class="nav-item active" id="nav-combate" onclick="switchTab('combate')"><span class="nav-icon">⚔️</span> Combate</div>
-    <div class="nav-item" id="nav-mochila" onclick="switchTab('mochila')"><span class="nav-icon">🎒</span> Mochila</div>
-    <div class="nav-item" id="nav-diario" onclick="switchTab('diario')"><span class="nav-icon">📖</span> Diário</div>
-  </div>
-
-<!-- ===== MODAIS ===== -->
-<div class="modal-overlay" id="modal-mestre">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-mestre')">×</button>
-    <h2 class="modal-title">Menu do Sistema</h2>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <button class="btn btn-outline" onclick="openHistory()">📜 Histórico de Ações</button>
-      <button class="btn btn-primary" onclick="exportSave()">💾 Exportar Progresso</button>
-      <button class="btn btn-outline" onclick="importSave()">📥 Importar Ficha</button>
-      <button class="btn btn-outline" style="color:var(--gem-red);border-color:var(--gem-red);" onclick="resetData()">💀 Apagar Personagem</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-history">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-history')">×</button>
-    <h2 class="modal-title">Histórico (Auditoria)</h2>
-    <p style="font-size:11px;text-align:center;color:#666;">Últimas 25 ações. Reversão exige senha.</p>
-    <div id="history-list" style="margin-top:10px;"></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-password">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-password')">×</button>
-    <h2 class="modal-title">Acesso do Mestre</h2>
-    <p style="font-size:13px;text-align:center;">Digite a senha para autorizar:</p>
-    <input type="password" id="input-pwd" placeholder="Senha">
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-outline" onclick="closeModal('modal-password')">Cancelar</button>
-      <button class="btn btn-primary" onclick="verifyPassword()">Confirmar</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-item-action">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-item-action')">×</button>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h2 class="modal-title" id="item-action-title" style="border:none;margin:0;font-size:17px;text-align:left;">Item</h2>
-      <button style="border:none;background:none;font-size:20px;cursor:pointer;padding:4px;" onclick="promptEditItem()">✏️</button>
-    </div>
-    <div style="background:rgba(0,0,0,0.04);padding:10px;border-radius:8px;margin:0 0 8px;font-size:13px;border-left:3px solid var(--gold);" id="item-action-desc"></div>
-    <div id="item-weight-info" style="font-size:11px;color:var(--ink-light);margin-bottom:10px;background:rgba(0,0,0,0.03);padding:6px 10px;border-radius:6px;display:none;"></div>
-    <p id="item-action-lore" style="font-size:12px;font-style:italic;color:#666;display:none;margin-bottom:12px;"></p>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <button class="btn btn-primary" id="btn-item-equip" onclick="executeItemAction('equip')">Equipar</button>
-      <button class="btn btn-gold" onclick="executeItemAction('sell')">Vender (Pechincha)</button>
-      <button class="btn btn-outline" style="color:var(--gem-red);border-color:rgba(211,47,47,0.3);" onclick="executeItemAction('drop')">Jogar Fora</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-add-item">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-add-item')">×</button>
-    <h2 class="modal-title" id="add-item-title">Novo Item</h2>
-    <label>Tipo:</label>
-    <select id="item-type" onchange="toggleItemType()">
-      <option value="atk">⚔️ Arma (Ataque)</option>
-      <option value="def">🛡️ Roupa (Defesa)</option>
-      <option value="acc">💍 Acessório / Passiva</option>
-      <option value="use">🧪 Poção / Consumível</option>
-      <option value="gold" id="opt-gold">💰 Ouro (Achar)</option>
-    </select>
-    <div id="wrap-normal-fields">
-      <div id="wrap-name">
-        <input type="text" id="item-name" placeholder="Nome do Item (Ex: Faca)">
-        <input type="text" id="item-lore" placeholder="Descrição/Detalhe (Opcional)" style="font-weight:normal;font-style:italic;">
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div style="flex:1;"><label>Poder/Bônus</label><input type="number" id="item-val" placeholder="Ex: 5"></div>
-        <div style="flex:1;" id="wrap-price-inner"><label id="lbl-item-price">Valor de Mercado (G)</label><input type="number" id="item-price" placeholder="Ex: 50"></div>
-      </div>
-      <div id="item-use-wrap" style="display:none;background:rgba(0,0,0,0.03);padding:10px;border-radius:8px;margin-bottom:10px;">
-        <label>Efeito da Poção:</label>
-        <select id="item-use-type" onchange="toggleDurationField()">
-          <option value="inst_hp">❤️ Curar HP (Instantâneo)</option>
-          <option value="inst_mp">💧 Recuperar MP (Instantâneo)</option>
-          <option value="inst_exp">✨ Ganhar EXP (Instantâneo)</option>
-          <option value="hot_hp">🩸 Cura de HP por Turnos</option>
-          <option value="hot_mp">💧 Restaura MP por Turnos</option>
-          <option value="buff_atk">⚔️ Buff: +Ataque Total</option>
-          <option value="buff_def">🛡️ Buff: +Escudo Total</option>
-          <option value="buff_hp_max">❤️ Buff: +HP Máximo</option>
-          <option value="buff_mp_max">💧 Buff: +MP Máximo</option>
-          <option value="buff_FOR">💪 Buff: +Força (FOR)</option>
-          <option value="buff_INT">🧠 Buff: +Inteligência (INT)</option>
-          <option value="buff_AGI">⚡ Buff: +Agilidade (AGI)</option>
-          <option value="buff_VIT">❤️ Buff: +Vitalidade (VIT)</option>
-          <option value="buff_CAR">🗣️ Buff: +Carisma (CAR)</option>
-          <option value="buff_SOR">🍀 Buff: +Sorte (SOR)</option>
-        </select>
-        <input type="number" id="item-duration" placeholder="Duração (Nº de Turnos)" style="display:none;margin-top:5px;">
-      </div>
-      <div id="item-acc-wrap" style="display:none;">
-        <label>Tipo de Bônus:</label>
-        <select id="item-acc-type">
-          <option value="atk">⚔️ +ATK Permanente</option>
-          <option value="def">🛡️ +DEF Permanente</option>
-          <option value="hp">❤️ +HP Máximo</option>
-          <option value="mp">💧 +MP Máximo</option>
-          <option value="kg">💪 +Carga Máxima</option>
-          <option value="+hp">🩸 Regen (+HP por Turno)</option>
-          <option value="+mp">💧 Regen (+MP por Turno)</option>
-        </select>
-      </div>
-      <div id="wrap-weight" style="display:flex;gap:10px;align-items:flex-end;">
-        <div style="flex:1;"><label>Peso (Kg)</label><input type="number" id="item-weight" placeholder="Ex: 2" style="margin:0;"></div>
-        <button class="btn btn-gold" style="width:auto;padding:11px 14px;margin-bottom:12px;" onclick="autoGenerateWeight()">🎲 Auto</button>
-      </div>
-    </div>
-    <div id="wrap-gold-fields" style="display:none;">
-      <label>Quantidade de Ouro (G)</label>
-      <input type="number" id="item-gold-val" placeholder="Ex: 100">
-    </div>
-    <button class="btn btn-primary" id="btn-save-item" onclick="saveItem()" style="margin-top:8px;">SALVAR</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-add-effect">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-add-effect')">×</button>
-    <h2 class="modal-title">Forçar Efeito</h2>
-    <div style="display:flex;gap:10px;margin-bottom:12px;">
-      <button class="btn btn-green" id="btn-eff-pos" onclick="setEffectMode('pos')">Bênção (+)</button>
-      <button class="btn btn-red" id="btn-eff-neg" onclick="setEffectMode('neg')">Maldição (−)</button>
-    </div>
-    <label>Atributo/Alvo:</label>
-    <select id="eff-stat">
-      <option value="atk">⚔️ Ataque Total</option>
-      <option value="def">🛡️ Escudo Total</option>
-      <option value="hp_max">❤️ HP Máximo</option>
-      <option value="mp_max">💧 MP Máximo</option>
-      <option value="FOR">💪 Força (FOR)</option>
-      <option value="INT">🧠 Inteligência (INT)</option>
-      <option value="AGI">⚡ Agilidade (AGI)</option>
-      <option value="VIT">❤️ Vitalidade (VIT)</option>
-      <option value="CAR">🗣️ Carisma (CAR)</option>
-      <option value="SOR">🍀 Sorte (SOR)</option>
-      <option value="hp_turn">🩸 HP por Turno (Vida)</option>
-      <option value="mp_turn">💧 MP por Turno (Mana)</option>
-    </select>
-    <label>Poder:</label><input type="number" id="eff-val" placeholder="Ex: 3">
-    <label>Duração (Turnos):</label><input type="number" id="eff-dur" placeholder="Ex: 3">
-    <label>Nome/Motivo:</label><input type="text" id="eff-desc" placeholder="Ex: Veneno do Mago">
-    <button class="btn btn-primary" onclick="saveManualEffect()">APLICAR EFEITO</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-bar-action">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-bar-action')">×</button>
-    <h2 class="modal-title" id="bar-title">Ação</h2>
-    <label>Quantidade:</label>
-    <input type="number" id="bar-val-input" placeholder="Ex: 5">
-    <div style="display:flex;gap:10px;margin-top:8px;">
-      <button class="btn btn-red" id="btn-bar-sub" onclick="executeBarAction('sub')">Perder (−)</button>
-      <button class="btn btn-green" onclick="executeBarAction('add')">Ganhar (+)</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-def">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-def')">×</button>
-    <h2 class="modal-title" id="def-title">🛡️ Defesa</h2>
-    <div style="text-align:center;padding:10px 0;">
-      <div id="def-dice-display" style="font-size:52px;font-family:'Cinzel';font-weight:900;color:var(--ink);">🎲</div>
-      <div id="def-log" style="font-size:13px;color:var(--ink-light);margin-top:5px;line-height:1.6;"></div>
-    </div>
-    <div id="def-damage-area" style="display:none;margin-top:12px;">
-      <label>Quanto de dano o monstro causou?</label>
-      <input type="number" id="def-damage-input" placeholder="Ex: 8">
-      <button class="btn btn-primary" onclick="applyDefDamage()">⚔️ Aplicar Dano</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL ATRIBUTO — popup ao clicar no atributo na ficha -->
-<div class="modal-overlay" id="modal-attr-info">
-  <div class="modal-card" style="text-align:center;">
-    <button class="modal-close" onclick="closeModal('modal-attr-info')">×</button>
-    <h2 class="modal-title" id="attr-info-title">Atributo</h2>
-    <p id="attr-info-msg" style="margin:10px 0 15px;font-size:14px;line-height:1.8;text-align:left;"></p>
-    <div id="attr-info-value" style="font-size:28px;font-weight:900;font-family:'Cinzel';color:var(--gem-blue);margin-bottom:10px;"></div>
-    <button class="btn btn-primary" onclick="closeModal('modal-attr-info')">Entendi</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-sell">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-sell')">×</button>
-    <h2 class="modal-title">Pechincha (Vender)</h2>
-    <p style="font-size:12px;text-align:center;">Negocie com o Mestre. Máximo: 75% do valor.</p>
-    <p style="font-size:28px;font-weight:bold;color:var(--gold);text-align:center;margin:12px 0;">💰 <span id="sell-price-display">0</span>G</p>
-    <input type="range" id="sell-slider" min="1" max="100" value="50" oninput="document.getElementById('sell-price-display').innerText=this.value">
-    <button class="btn btn-gold" style="margin-top:12px;" onclick="confirmSell()">VENDER</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-potions">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-potions')">×</button>
-    <h2 class="modal-title">Poções Rápidas</h2>
-    <div id="potion-list-popup"></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-revive">
-  <div class="modal-card" style="text-align:center;">
-    <button class="modal-close" onclick="closeModal('modal-revive')">×</button>
-    <h2 class="modal-title">⚕️ Reviver Personagem</h2>
-    <p style="font-size:13px;margin-bottom:15px;">Reviver com quanto HP?</p>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <button class="btn btn-green" onclick="confirmRevive('um')">💚 1 HP (Milagre)</button>
-      <button class="btn btn-blue" onclick="confirmRevive('meio')">💙 Metade do HP</button>
-      <button class="btn btn-gold" onclick="confirmRevive('full')">💛 HP Completo</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-alert">
-  <div class="modal-card" style="text-align:center;">
-    <h2 class="modal-title" id="alert-title">Aviso</h2>
-    <p id="alert-msg" style="margin:15px 0;font-size:14px;line-height:1.6;"></p>
-    <button class="btn btn-primary" onclick="closeModal('modal-alert')">OK</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-confirm">
-  <div class="modal-card" style="text-align:center;">
-    <h2 class="modal-title" id="confirm-title">Confirmação</h2>
-    <p id="confirm-msg" style="margin:15px 0;font-size:14px;line-height:1.6;"></p>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-outline" onclick="closeModal('modal-confirm')">Cancelar</button>
-      <button class="btn btn-blue" id="btn-confirm-action">Confirmar</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-info">
-  <div class="modal-card" style="text-align:center;">
-    <button class="modal-close" onclick="closeModal('modal-info')">×</button>
-    <h2 class="modal-title" id="info-title">Info</h2>
-    <p id="info-msg" style="margin:15px 0;font-size:14px;line-height:1.7;text-align:left;"></p>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-note-edit">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-note-edit')">×</button>
-    <h2 class="modal-title" id="note-edit-title">Nova Anotação</h2>
-    <label>Título</label>
-    <input type="text" id="note-input-title" placeholder="Ex: Missão da Taverna, Mapa Secreto...">
-    <label>Anotação</label>
-    <textarea id="note-input-body" placeholder="Escreva aqui..." style="min-height:140px;"></textarea>
-    <button class="btn btn-primary" onclick="saveNote()" style="margin-top:8px;">💾 SALVAR</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-note-view">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeModal('modal-note-view')">×</button>
-    <h2 class="modal-title" id="note-view-title">Anotação</h2>
-    <div id="note-view-body" style="font-size:14px;line-height:1.8;color:var(--ink);white-space:pre-wrap;margin-bottom:15px;"></div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-blue" id="note-view-edit-btn">✏️ Editar</button>
-      <button class="btn btn-red" id="note-view-delete-btn">🗑️ Excluir</button>
-    </div>
-  </div>
-</div>
-
-<script src="mestre.js"></script>
+        const countdown = setInterval(() => {
+            timeLeft--;
+            timerElement.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                window.location.href = targetUrl;
+            }
+        }, 1000);
+    </script>
 </body>
 </html>
